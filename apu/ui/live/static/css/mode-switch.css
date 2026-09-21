@@ -1,0 +1,55 @@
+/* mode-switch.css - Segmented view toggle between Discussion and Prompter */
+
+.mode-switch-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px 0 6px;
+}
+
+.mode-segmented-control {
+  display: flex;
+  align-items: center;
+  background: rgba(18, 22, 34, 0.6);
+  border: 1px solid var(--border);
+  padding: 3px;
+  border-radius: var(--radius-full);
+  gap: 2px;
+}
+
+.mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 18px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mode-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+  opacity: 0.8;
+}
+
+.mode-btn:hover {
+  color: var(--text-primary);
+}
+
+.mode-btn.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.mode-btn.active svg {
+  opacity: 1;
+  fill: var(--accent-light);
+}

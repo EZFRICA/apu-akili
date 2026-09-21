@@ -1,0 +1,26 @@
+# Chainlit settings for the student chat (apu/ui/chainlit_app.py).
+
+[project]
+enable_telemetry = false
+user_env = []
+session_timeout = 3600
+cache = false
+
+[features]
+# The tutor writes maths, and without this it reaches the pupil as raw \frac{1}{4}.
+latex = true
+unsafe_allow_html = true
+# The microphone in the composer. The recording is transcribed and then classified by the
+# topical guard like any typed question; nothing is answered from audio directly.
+[features.audio]
+enabled = true
+sample_rate = 24000
+
+[UI]
+name = "APU Akili"
+description = "A school tutor with a topical guard on every exchange."
+default_collapse_content = false
+cot = "tool_call"
+
+[meta]
+generated_by = "2.12.0"

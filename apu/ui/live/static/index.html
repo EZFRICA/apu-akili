@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>APU · Live Voice Lab</title>
+
+  <!-- Component Stylesheets (Lego CSS) -->
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/header.css">
+  <link rel="stylesheet" href="/static/css/mode-switch.css">
+  <link rel="stylesheet" href="/static/css/chat.css">
+  <link rel="stylesheet" href="/static/css/prompter.css">
+  <link rel="stylesheet" href="/static/css/braille.css">
+  <link rel="stylesheet" href="/static/css/controls.css">
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="header-brand">
+      <div class="brand-badge">APU</div>
+      <div class="brand-title">
+        Live Voice Lab
+        <span class="brand-pill">Multimodal</span>
+      </div>
+    </div>
+
+    <!-- Live Model Tabs -->
+    <nav class="model-tabs" aria-label="Model selection">
+      <button class="model-tab active" data-model="eleven_english_sts_v2">ElevenLabs STS</button>
+      <button class="model-tab" data-model="gemini-3.5-transcribe-live">Gemini Transcribe</button>
+    </nav>
+
+    <!-- Header Actions -->
+    <div class="header-actions">
+      <!-- Pupil Selector -->
+      <div class="student-picker">
+        <label for="student-select">Student:</label>
+        <select id="student-select">
+          <option value="eleve-aya|lycee-cocody:3eA" selected>Aya (3eA · Cocody)</option>
+          <option value="eleve-koffi|lycee-cocody:3eA">Koffi (3eA · Cocody)</option>
+          <option value="eleve-fatou|lycee-cocody:3eA">Fatou (3eA · Cocody)</option>
+        </select>
+      </div>
+
+      <!-- Connection Pill -->
+      <div id="status-pill" class="status-pill">
+        <span class="status-dot"></span>
+        <span id="status-text">Initializing…</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Segmented Display Mode Switch -->
+  <div class="mode-switch-wrapper">
+    <div class="mode-segmented-control" role="tablist">
+      <button class="mode-btn active" data-mode="discussion" role="tab" aria-selected="true">
+        <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+        Discussion
+      </button>
+      <button class="mode-btn" data-mode="prompter" role="tab" aria-selected="false">
+        <svg viewBox="0 0 24 24"><path d="M19 4H5c-1.11 0-2 .9-2 2v12c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.89-2-2-2zm0 14H5V6h14v12zm-8-3h6v2h-6zm-4-4h10v2H7zm0-4h10v2H7z"/></svg>
+        Teleprompter
+      </button>
+    </div>
+  </div>
+
+  <!-- Discussion View (Chat Stream) -->
+  <main id="chat-container" class="chat-container" role="log" aria-live="polite">
+    <div class="message-row assistant">
+      <div class="message-bubble">
+        Hello Aya! I am your APU voice tutor. Click the microphone below and ask me your question out loud.
+      </div>
+      <div class="message-meta">
+        <span>APU Tutor</span>
+        <span class="guard-badge approved">ready</span>
+      </div>
+    </div>
+  </main>
+
+  <!-- Prompter View (Teleprompter Large Text) -->
+  <section id="prompter-container" class="prompter-container hidden" aria-live="assertive">
+    <div class="prompter-stage">
+      <div class="prompter-speaker-badge idle">Waiting for voice…</div>
+      <div class="prompter-text-window">
+        <div class="prompter-text empty">
+          Speak or click the microphone to begin…
+        </div>
+      </div>
+      <div class="prompter-card-slot"></div>
+    </div>
+  </section>
+
+  <!-- Action Deck & Central Mic Controls -->
+  <footer class="app-controls">
+    <!-- Big Animated Mic Circle -->
+    <div class="mic-action-wrapper">
+      <button id="mic-btn" class="mic-btn" aria-label="Activate or stop microphone" title="Hold or click to speak">
+        <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.91-3c-.49 0-.9.36-.98.85C16.52 14.2 14.47 16 12 16s-4.52-1.8-4.93-4.15c-.08-.49-.49-.85-.98-.85-.61 0-1.09.54-1 1.14.49 3 2.89 5.35 5.91 5.78V20c0 .55.45 1 1 1s1-.45 1-1v-2.08c3.02-.43 5.42-2.78 5.91-5.78.1-.6-.39-1.14-1-1.14z"/></svg>
+      </button>
+      <div class="mic-rings"></div>
+    </div>
+
+    <!-- Latency & Telemetry HUD -->
+    <div class="telemetry-hud">
+      <div class="telemetry-item">
+        <span>Total latency:</span>
+        <span id="hud-latency" class="telemetry-value">--</span>
+      </div>
+      <div class="telemetry-item">
+        <span>Audio duration:</span>
+        <span id="hud-audio-dur" class="telemetry-value">--</span>
+      </div>
+      <div class="telemetry-item">
+        <span>Mode:</span>
+        <span class="telemetry-value">Safeguards active</span>
+      </div>
+    </div>
+
+    <!-- Expandable Logs Drawer -->
+    <details class="logs-drawer">
+      <summary>Activity log & diagnostics</summary>
+      <div id="logs-content" class="logs-drawer-content"></div>
+    </details>
+  </footer>
+
+  <!-- Application Modular Script Entry Point -->
+  <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>

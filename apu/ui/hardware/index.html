@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>APU Akili · 3D Tactile Hardware Companion</title>
+  <meta name="description" content="3D Interactive Tactile Voice Companion Prototype for students with visual and motor impairments.">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <!-- WebGL 3D Canvas -->
+  <div id="canvas-container"></div>
+
+  <!-- Left Interactive Sidebar (Directly mapped to apu.ui.live backend code) -->
+  <aside class="hardware-sidebar">
+    <div class="sidebar-header">
+      <div class="brand-badge">APU</div>
+      <div>
+        <h1>Pocket Akili</h1>
+        <p>Tactile Voice Companion &bull; 165g</p>
+      </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="specs-badge-row">
+      <span class="badge-chip">Weight: <strong>165g</strong></span>
+      <span class="badge-chip">Battery: <strong>18h</strong></span>
+      <span class="badge-chip" id="sound-toggle" title="Toggle Haptic Audio Cues">🔊 Cues</span>
+    </div>
+
+    <!-- Section 1: Tactile Buttons mapped to apu/ui/live -->
+    <div class="section-title">Tactile Buttons &bull; Live Code</div>
+    <div class="parts-nav">
+      <button class="part-nav-item active" data-part="btn_ptt">
+        <span class="item-icon icon-ptt">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="22"></line></svg>
+        </span>
+        <div class="item-text">
+          <strong>Mic / PTT (Speech)</strong>
+          <span class="code-tag">live/pipeline.py ➔ process_turn</span>
+        </div>
+      </button>
+
+      <button class="part-nav-item" data-part="btn_notebook">
+        <span class="item-icon icon-star">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+        </span>
+        <div class="item-text">
+          <strong>Notebook (Save Note)</strong>
+          <span class="code-tag">intents.py ➔ handle_save_notebook</span>
+        </div>
+      </button>
+
+      <button class="part-nav-item" data-part="btn_summary">
+        <span class="item-icon icon-sum">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg>
+        </span>
+        <div class="item-text">
+          <strong>Summary (Recap Notes)</strong>
+          <span class="code-tag">intents.py ➔ handle_summary_notebook</span>
+        </div>
+      </button>
+
+      <button class="part-nav-item" data-part="btn_braille">
+        <span class="item-icon icon-braille">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="8" cy="6" r="2.5"></circle><circle cx="8" cy="12" r="2.5"></circle><circle cx="8" cy="18" r="2.5"></circle><circle cx="16" cy="6" r="2.5"></circle><circle cx="16" cy="12" r="2.5"></circle><circle cx="16" cy="18" r="2.5"></circle></svg>
+        </span>
+        <div class="item-text">
+          <strong>Braille (G1 & G2 Format)</strong>
+          <span class="code-tag">intents.py ➔ compute_braille</span>
+        </div>
+      </button>
+    </div>
+
+    <!-- Section 2: External Ports & Connectivity -->
+    <div class="section-title">External Connectivity &bull; Ports</div>
+    <div class="parts-nav">
+      <button class="part-nav-item" data-part="port_usbc">
+        <span class="item-icon icon-port">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+        </span>
+        <div class="item-text">
+          <strong>USB Type-C Port</strong>
+          <span class="code-tag">Fast Charge 20W PD & Data</span>
+        </div>
+      </button>
+
+      <button class="part-nav-item" data-part="port_jack">
+        <span class="item-icon icon-port">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"></path><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"></path></svg>
+        </span>
+        <div class="item-text">
+          <strong>3.5mm Headphone Jack</strong>
+          <span class="code-tag">Private Audio / Bone Conduction</span>
+        </div>
+      </button>
+
+      <button class="part-nav-item" data-part="port_braille">
+        <span class="item-icon icon-port">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+        </span>
+        <div class="item-text">
+          <strong>Braille Display Connector</strong>
+          <span class="code-tag">Magnetic dock for refreshable braille</span>
+        </div>
+      </button>
+
+      <button class="part-nav-item" data-part="volume_wheel">
+        <span class="item-icon icon-port">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+        </span>
+        <div class="item-text">
+          <strong>Knurled Volume Wheel</strong>
+          <span class="code-tag">Thumb potentiometer with detents</span>
+        </div>
+      </button>
+    </div>
+  </aside>
+
+  <!-- Right Inspector Card: Details of Selected Component -->
+  <aside class="inspector-card" id="inspector-card">
+    <div class="inspector-badge" id="inspector-badge">Live Button</div>
+    <h2 class="inspector-title" id="inspector-title">PTT / Microphone Button</h2>
+    <div class="inspector-code" id="inspector-code">apu/ui/live/pipeline.py ➔ process_turn()</div>
+    <p class="inspector-desc" id="inspector-desc">
+      Oversized central button with high-relief concentric rings and an embossed microphone icon. Pressing it streams 16kHz audio over WebSocket into the Socratic tutor pipeline.
+    </p>
+
+    <button id="trigger-btn" class="trigger-btn">
+      <span>Test Action</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+    </button>
+  </aside>
+
+  <!-- Floating 3D Navigation Controls (Bottom Right) -->
+  <nav class="floating-controls" aria-label="Camera Views">
+    <button id="btn-front" class="nav-btn" title="Front View of Controls">Front View</button>
+    <button id="btn-ports" class="nav-btn" title="Bottom Edge View of Ports">Ports View</button>
+    <button id="btn-reset" class="nav-btn" title="Overview 3D Perspective">3D Overview</button>
+  </nav>
+
+  <!-- Canvas Interaction Hint -->
+  <div class="interaction-hint">
+    🖱️ Drag to rotate 360° &bull; Scroll to zoom &bull; Click any tactile button or port to inspect
+  </div>
+
+  <script type="module" src="viewer.js"></script>
+</body>
+</html>

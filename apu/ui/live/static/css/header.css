@@ -1,0 +1,169 @@
+/* header.css - Top navigation & state controls */
+
+header.app-header {
+  height: 64px;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(11, 14, 23, 0.85);
+  backdrop-filter: blur(12px);
+  z-index: 100;
+  gap: 16px;
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand-badge {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--accent), var(--cyan));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  color: #fff;
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.brand-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--accent-light);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+/* Model selector tabs */
+.model-tabs {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 3px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  gap: 4px;
+}
+
+.model-tab {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.model-tab:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.model-tab.active {
+  color: #fff;
+  background: var(--accent);
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+
+/* Header actions right */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Pupil selector dropdown */
+.student-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 4px 10px;
+}
+
+.student-picker label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.student-picker select {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+}
+
+.student-picker select option {
+  background: #0f1422;
+  color: #fff;
+}
+
+/* Connection Status Pill */
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  transition: all var(--transition-fast);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.status-pill.connected .status-dot {
+  background: var(--emerald);
+  box-shadow: 0 0 10px var(--emerald-glow);
+}
+
+.status-pill.listening .status-dot {
+  background: var(--rose);
+  animation: pulse-dot 1.2s infinite ease-in-out;
+}
+
+.status-pill.thinking .status-dot {
+  background: var(--amber);
+  animation: pulse-dot 0.8s infinite ease-in-out;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.3); }
+}

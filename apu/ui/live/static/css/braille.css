@@ -1,0 +1,111 @@
+/* braille.css - Tactile Braille cards and BRF export controls */
+
+.braille-card {
+  margin-top: 10px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: rgba(14, 165, 233, 0.06);
+  border: 1px solid rgba(14, 165, 233, 0.22);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.braille-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.braille-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--cyan);
+}
+
+.braille-card-title svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+
+.braille-grade-toggles {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  gap: 2px;
+}
+
+.grade-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.grade-btn.active {
+  background: var(--cyan);
+  color: #000;
+}
+
+.braille-card-body {
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  overflow-x: auto;
+}
+
+.braille-dots-text {
+  font-family: "Apple Braille", "DejaVu Sans", "Segoe UI Symbol", monospace;
+  font-size: 19px;
+  line-height: 1.5;
+  letter-spacing: 2px;
+  color: #38bdf8;
+  word-break: break-all;
+  user-select: all;
+}
+
+.braille-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.btn-download-brf {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(14, 165, 233, 0.15);
+  border: 1px solid rgba(14, 165, 233, 0.35);
+  color: #38bdf8;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-download-brf:hover {
+  background: rgba(14, 165, 233, 0.25);
+  color: #fff;
+}
+
+.btn-download-brf svg {
+  width: 13px;
+  height: 13px;
+  fill: currentColor;
+}
