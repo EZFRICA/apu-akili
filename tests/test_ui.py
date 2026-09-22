@@ -182,7 +182,12 @@ def test_a_spoken_answer_is_read_out_when_the_voice_provider_answers(ui, fake_ll
     voice.set_http(None)
 
 
-def test_without_a_voice_key_the_browser_voice_still_reads_the_answer(ui, fake_llm, monkeypatch):
+def test_without_working_speech_the_browser_voice_still_reads_the_answer(ui, fake_llm, monkeypatch):
+    """
+    Speech out can fail for more than a missing key: the provider is down, or the fallback
+    to the other provider fails too. Whatever the cause, the answer still reaches the pupil
+    and the page says why it is not being read by the chosen voice.
+    """
     from apu import config
     from apu.modality import voice
 
@@ -199,7 +204,7 @@ def test_without_a_voice_key_the_browser_voice_still_reads_the_answer(ui, fake_l
     assert not app.exception, app.exception
     spoken_message = app.session_state["chat"][-1]
     assert "audio" not in spoken_message
-    assert config.ELEVENLABS_API_KEY_ENV in spoken_message["voice_problem"]
+    assert spoken_message["voice_problem"], "a failed synthesis has to be reported, not swallowed"
     assert "using the browser voice" in texts(app)
 
 

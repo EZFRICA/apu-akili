@@ -1,0 +1,42 @@
+# What a clone of this repository must pass, with no provider key of any kind.
+#
+# The suite runs offline: every model call is faked, and a test that reaches for the network
+# fails rather than calling out. The two things the runner still needs from the system are
+# liblouis, the braille library, and the ONNX embedder, which is a 240 MB download the tests
+# skip when it is absent (7 skips, see README).
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install liblouis
+        # The braille translator loads the C library by name and reads its tables from disk.
+        run: sudo apt-get update && sudo apt-get install -y liblouis-dev liblouis-data
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install the dependencies
+        # Frozen: CI installs what uv.lock pins, and fails if the lock is out of date.
+        run: uv sync --frozen --all-groups
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Tests
+        run: uv run pytest -q

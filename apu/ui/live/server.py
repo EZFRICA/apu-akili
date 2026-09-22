@@ -7,22 +7,23 @@ Exposes:
   - WebSocket /ws/{model_id} : Dispatches to ElevenLabs STS or Gemini Live runners
 """
 
-import asyncio
 from pathlib import Path
 from uuid import uuid4
 
 from dotenv import find_dotenv, load_dotenv
+
+# uvicorn imports this module directly, so the keys have to be in the environment before the
+# runners below read them at import time. Hence the imports after this call, and the noqa.
 load_dotenv(find_dotenv())
 
-from fastapi import FastAPI, Query
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
-from starlette.websockets import WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Query  # noqa: E402
+from fastapi.responses import FileResponse  # noqa: E402
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+from starlette.websockets import WebSocket, WebSocketDisconnect  # noqa: E402
 
-from apu.logger import get_logger
-from apu.ui.live.runner_elevenlabs import run_elevenlabs_sts
-from apu.ui.live.runner_gemini_transcribe import run_gemini_transcribe_live
-from apu.ui.live.runner_gemini_live import run_gemini_live
+from apu.logger import get_logger  # noqa: E402
+from apu.ui.live.runner_elevenlabs import run_elevenlabs_sts  # noqa: E402
+from apu.ui.live.runner_gemini_transcribe import run_gemini_transcribe_live  # noqa: E402
 
 logger = get_logger("live_server")
 
@@ -92,7 +93,20 @@ async def ws_proxy(
             await run_gemini_transcribe_live(
                 client_ws, session_id, student_id, class_id, history, session_context
             )
-        elif model_id in ("gemini-3.8-live", "gemini-3.8-live-extended-thinking"):
+        elif model_id == "gemini-3.8-live":
+            # Direct audio to audio answers before the guard has classified anything, so this
+            # runner is an experiment kept off the dashboard and out of the repository. It is
+            # imported here rather than at the top so a clone without it still starts.
+            try:
+                from apu.ui.live.runner_gemini_live import run_gemini_live
+            except ModuleNotFoundError:
+                await client_ws.send_json({
+                    "type": "error",
+                    "message": (f"'{model_id}' is an experimental runner that is not part of "
+                                "this installation. See apu/ui/live/README.md."),
+                })
+                await client_ws.close(1008)
+                return
             await run_gemini_live(
                 client_ws, model_id, session_id, student_id, class_id, history, session_context
             )

@@ -42,6 +42,12 @@ def configure_root_logger():
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("openai").setLevel(logging.WARNING)
+    # The websocket client used by the live runners logs every frame it sends at DEBUG,
+    # request headers included, and one of those headers is the provider API key. It also
+    # dumps each audio frame, which is the pupil's own voice. Neither belongs on a console
+    # somebody may copy into a bug report.
+    logging.getLogger("websockets").setLevel(logging.WARNING)
+    logging.getLogger("google_genai").setLevel(logging.WARNING)
     # NeMo Guardrails logs every Colang event at INFO, dozens of lines per student turn,
     # which buries the tutor's own log under the rail's internals.
     logging.getLogger("nemoguardrails").setLevel(logging.WARNING)

@@ -314,7 +314,7 @@ async def main(upload: bool = False):
 
     classes = curriculum.get("classes", {})
     print(f"\n{'='*60}")
-    print(f"  AKILI BATCH PIPELINE")
+    print("  AKILI BATCH PIPELINE")
     print(f"  Classes: {list(classes.keys())}")
     print(f"{'='*60}\n")
 
@@ -350,7 +350,7 @@ async def main(upload: bool = False):
         print("\nSTEP 4 — GCS upload skipped. Run with --upload to push to cloud.\n")
 
     print(f"\n{'='*60}")
-    print(f"  PIPELINE COMPLETE")
+    print("  PIPELINE COMPLETE")
     print(f"  Registry files are in: {REGISTRY_DIR}")
     print(f"{'='*60}\n")
 

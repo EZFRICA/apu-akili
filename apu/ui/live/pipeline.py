@@ -8,13 +8,11 @@ Orchestrates:
 """
 
 import asyncio
-import os
 import time
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from apu import config
 from apu.logger import get_logger
-from apu.modality.plain_text import plain_text
 from apu.modality.voice import synthesize
 from apu.ui.live.intents import (
     is_save_notebook_intent,
@@ -73,7 +71,6 @@ async def call_guard_and_tutor(
     Pass user text through NeMo Guardrails + APU tutor pipeline.
     Returns: (final_response, guard_action, guard_status, subject)
     """
-    from apu import config
     from apu.guardrails.session import UnknownSession
     from apu.guardrails.session import sessions as guard_sessions
     from apu.mmu import dll as mmu

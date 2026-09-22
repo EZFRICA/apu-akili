@@ -65,6 +65,3 @@ benchmarks/
 .idea/
 .vscode/
 
-# ── Experimental Live Runners ────────────────────────────────────────────────
-apu/ui/live/runner_gemini_live.py
-

@@ -82,10 +82,21 @@ def test_a_role_fails_loudly_on_first_use_without_its_provider_key():
     assert "RAISED:" in proc.stdout and "is not set" in proc.stdout, proc.stdout + proc.stderr
 
 
-def test_only_the_voice_module_may_use_another_provider(akili_paths):
+# Speech is the one place a provider SDK is used directly: the voice module for speech in
+# and out, and the live runners, which hold a streaming socket open. Everything else, the
+# tutor, the guard, the write-back and the query gate, goes through apu/inference/llm.py.
+SPEECH_PATHS = {
+    "apu/modality/voice.py",
+    "apu/ui/live/runner_elevenlabs.py",
+    "apu/ui/live/runner_gemini_transcribe.py",
+    "apu/ui/live/runner_gemini_live.py",   # kept out of the repository, present on some machines
+}
+
+
+def test_only_the_speech_path_may_use_another_provider(akili_paths):
     """
-    Every inference call goes through nebius_client, with one deliberate exception:
-    apu/modality/voice.py calls Gemini for speech in and speech out. Nothing else may.
+    Every inference call goes through apu/inference/llm.py, with one deliberate exception:
+    the speech path talks to its provider's SDK directly. Nothing else may.
     """
     forbidden = re.compile(
         r"^\s*(from|import)\s+(ollama|langchain_ollama|langchain_google_genai|"
@@ -97,7 +108,10 @@ def test_only_the_voice_module_may_use_another_provider(akili_paths):
         for p in (REPO_ROOT / "apu").rglob("*.py")
         if forbidden.search(p.read_text(encoding="utf-8"))
     ]
-    assert offenders == ["apu/modality/voice.py"]
+    assert "apu/modality/voice.py" in offenders, "the voice module is the reference case"
+    assert set(offenders) <= SPEECH_PATHS, (
+        "a module outside the speech path imports a provider SDK directly: "
+        f"{sorted(set(offenders) - SPEECH_PATHS)}")
 
 
 # ── model routing ────────────────────────────────────────────────────────────

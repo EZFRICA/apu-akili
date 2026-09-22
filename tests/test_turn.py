@@ -4,8 +4,8 @@ One student turn, as an interface runs it.
 Target: apu/ui/turn.py
 
 The turn lives outside the pages that show it, so it is tested once here rather than through
-a user interface. A second, chat-first interface is being tried out locally and is not part
-of this repository; the checks that concern it skip when it is absent.
+a user interface. A second, chat-first interface shares the same turn; the checks that concern it skip
+where chainlit is not installed.
 """
 
 import pytest
@@ -108,19 +108,20 @@ async def test_a_broken_turn_is_reported_not_raised(akili_paths, no_network, stu
 
 def test_the_chat_interface_wires_the_same_turn():
     """
-    The experimental chat has no headless test harness, so what is checked is how it is
-    wired. Skipped where that interface is not installed, which includes a fresh clone.
+    The chat has no headless test harness, so what is checked is how it is wired: it must
+    run the shared turn rather than the graph, and a recording must become text first.
     """
     import inspect
 
-    pytest.importorskip("chainlit", reason="the chat interface is not part of this repository")
+    pytest.importorskip("chainlit", reason="chainlit is not installed")
     chainlit_app = pytest.importorskip("apu.ui.chainlit_app")
 
     source = inspect.getsource(chainlit_app)
     assert "turn_service.run_turn" in source, "the chat must not build its own turn"
     assert "planner_node" not in source and "create_agent_graph" not in source
     # A recording becomes text, and that text takes the normal path.
-    assert "voice.transcribe" in source and source.index("voice.transcribe") < source.index("await answer(transcript)")
+    assert "voice.transcribe" in source
+    assert source.index("voice.transcribe") < source.index("await answer(transcript")
     for handler in ("on_chat_start", "on_message", "on_audio_end", "action_callback"):
         assert f"@cl.{handler}" in source, handler
 
@@ -130,7 +131,7 @@ def test_the_chat_interface_wires_the_same_turn():
 def test_the_chat_offers_the_supported_modes(mode, channels):
     from apu.modality.mode import SUPPORTED_COMBINATIONS
 
-    pytest.importorskip("chainlit", reason="the chat interface is not part of this repository")
+    pytest.importorskip("chainlit", reason="chainlit is not installed")
     chainlit_app = pytest.importorskip("apu.ui.chainlit_app")
 
     assert chainlit_app.MODES[mode] == channels
