@@ -30,11 +30,11 @@ def main():
     server_address = ("", args.port)
     httpd = HTTPServer(server_address, HardwareHTTPHandler)
     url = f"http://localhost:{args.port}/"
-    print(f"==================================================")
-    print(f" APU Akili · 3D Tactile Hardware Studio")
+    print("==================================================")
+    print(" APU Akili · 3D Tactile Hardware Studio")
     print(f" URL: {url}")
-    print(f" Press Ctrl+C to stop.")
-    print(f"==================================================")
+    print(" Press Ctrl+C to stop.")
+    print("==================================================")
 
     if args.open:
         try:

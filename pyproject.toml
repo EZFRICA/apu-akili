@@ -49,6 +49,9 @@ dependencies = [
 dev = [
     "pytest>=8.3.0",
     "pytest-asyncio>=0.24.0",
+    # The linter CI runs. Pinned to a minor: a new rule landing upstream should be a
+    # deliberate upgrade, not a red build on an unrelated pull request.
+    "ruff>=0.14.0,<0.15",
 ]
 
 [tool.uv]

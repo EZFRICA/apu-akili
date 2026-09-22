@@ -75,7 +75,7 @@ wheel    │      [<< Rew]   [►|| Play]   [>> Fwd]│  ◄ Navigation Deck:
    - Activates voice input to the APU Socratic tutor pipeline.
 2. **Dedicated Notebook / Star Button (`notebook_btn`)**:
    - Embossed star shape with Braille letter **"N"** (⠝).
-   - Direct hardware hook to the [`save_to_notebook`](file:///Users/mahuton/LocalDocs/2026/project/apu-akili/apu/tools/notebook.py) tool, persisting key lesson takeaways into the SQLite student notebook without needing verbal instructions.
+   - Direct hardware hook to the [`save_to_notebook`](../../../apu/tools/notebook.py) tool, persisting key lesson takeaways into the SQLite student notebook without needing verbal instructions.
 3. **3.5mm Headphone Jack (`jack_port`)**:
    - Chamfered guide funnel allowing blind students to easily locate and plug in standard headphones or bone-conduction headsets.
 4. **USB-C Charging Port (`usbc_port`)**:
@@ -91,7 +91,7 @@ wheel    │      [<< Rew]   [►|| Play]   [>> Fwd]│  ◄ Navigation Deck:
 
 ## Files in this Directory
 
-- [`app.py`](file:///Users/mahuton/LocalDocs/2026/project/apu-akili/apu/ui/hardware/app.py): Standalone local server runner (`uv run python -m apu.ui.hardware.app`).
-- [`index.html`](file:///Users/mahuton/LocalDocs/2026/project/apu-akili/apu/ui/hardware/index.html): WebGL 3D Studio application shell and accessible HUD overlay.
-- [`styles.css`](file:///Users/mahuton/LocalDocs/2026/project/apu-akili/apu/ui/hardware/styles.css): Glassmorphic dark UI, telemetry indicators, and high-contrast styling.
-- [`viewer.js`](file:///Users/mahuton/LocalDocs/2026/project/apu-akili/apu/ui/hardware/viewer.js): Three.js procedural 3D model, mechanical sound engine, raycasting, and exploded view animations.
+- [`app.py`](./app.py): Standalone local server runner (`uv run python -m apu.ui.hardware.app`).
+- [`index.html`](./index.html): WebGL 3D Studio application shell and accessible HUD overlay.
+- [`styles.css`](./styles.css): Glassmorphic dark UI, telemetry indicators, and high-contrast styling.
+- [`viewer.js`](./viewer.js): Three.js procedural 3D model, mechanical sound engine, raycasting, and exploded view animations.

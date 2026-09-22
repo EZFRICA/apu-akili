@@ -366,9 +366,12 @@ def move_to_front(block_id: str, dll: dict) -> dict:
     nodes = dll["nodes"]
     target = nodes[block_id]
     prev_id, next_id = target["prev"], target["next"]
-    if prev_id: nodes[prev_id]["next"] = next_id
-    if next_id: nodes[next_id]["prev"] = prev_id
-    if dll["tail_id"] == block_id: dll["tail_id"] = prev_id
+    if prev_id:
+        nodes[prev_id]["next"] = next_id
+    if next_id:
+        nodes[next_id]["prev"] = prev_id
+    if dll["tail_id"] == block_id:
+        dll["tail_id"] = prev_id
     old_head = dll["head_id"]
     nodes[old_head]["prev"] = block_id
     target["prev"], target["next"] = None, old_head

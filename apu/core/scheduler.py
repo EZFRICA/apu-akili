@@ -161,7 +161,8 @@ class LocalScheduler:
 
     async def start(self):
         """Starts the scheduler loop."""
-        if self._is_running: return
+        if self._is_running:
+            return
         self._is_running = True
         logger.info("Local scheduler started.")
 

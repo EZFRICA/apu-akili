@@ -6,9 +6,7 @@ Handles:
   3. Braille conversion & download ("format in braille", "give me the braille format")
 """
 
-import os
 import re
-import time
 from apu.logger import get_logger
 
 logger = get_logger(__name__)
