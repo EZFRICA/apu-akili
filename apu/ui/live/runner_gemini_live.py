@@ -1,8 +1,7 @@
 """Gemini Live Multimodal runner for APU Live Lab.
 
-Models:
+Model:
   - gemini-3.8-live
-  - gemini-3.8-live-extended-thinking
 Architecture:
   Direct Bidirectional Multimodal Live (response_modalities=["AUDIO"]).
   Streams PCM 16kHz audio in -> streams PCM 24kHz audio + output transcription out.
@@ -120,7 +119,6 @@ async def run_gemini_live(
         guard_sessions.open_session(student_id=student_id, class_id=class_id, session_id=session_id)
 
     gemini_client = genai.Client(api_key=GEMINI_KEY)
-    thinking = "thinking" in model_id
 
     sys_instruction = _build_system_instruction(student_id, class_id)
 
@@ -136,10 +134,6 @@ async def run_gemini_live(
             automatic_activity_detection=types.AutomaticActivityDetection(disabled=True),
         ),
         output_audio_transcription=types.AudioTranscriptionConfig(),
-        thinking_config=types.ThinkingConfig(
-            thinking_level=types.ThinkingLevel.HIGH,
-            include_thoughts=False,
-        ) if thinking else None,
     )
 
     t_start = [time.perf_counter()]
