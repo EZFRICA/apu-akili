@@ -180,3 +180,37 @@ async def test_a_proposal_is_refused_when_the_embedder_is_unavailable(
         "initial_content": "The student is learning fractions.", "keywords": [],
     }) is False
     assert "dynamic_block_1" not in (await mmu.load_dll())["nodes"]
+
+
+async def test_a_write_that_fails_is_refused_and_named(akili_paths, stub_embeddings,
+                                                       monkeypatch, caplog):
+    """
+    The write is the last step, and it can fail on its own: a locked database, a table that
+    will not open. The turn that suggested the block must survive it, the caller must see
+    the refusal, and the log has to say which proposal it was. "Auto-execute failed" said
+    none of that.
+    """
+    await mmu.init_dll()
+
+    async def refuse_to_write(**kwargs):
+        raise OSError("database is locked")
+
+    monkeypatch.setattr(mmu, "create_dynamic_block", refuse_to_write)
+
+    with caplog.at_level("ERROR", logger="dll"):
+        created = await mmu.auto_execute_block_proposal({
+            "proposed_id": "dynamic_block_1",
+            "label": "Topic currently being learned",
+            "type": "temp",
+            "initial_content": "The student is learning fractions.",
+            "keywords": ["fractions"],
+        })
+
+    assert created is False, "the caller decides what to tell the pupil, and it needs the truth"
+    [record] = [r for r in caplog.records if "block proposal" in r.message]
+    assert "dynamic_block_1" in record.message, "the log must name the proposal that failed"
+    assert "database is locked" in record.message
+    assert record.args, "logging is lazy everywhere else in this file, and here too"
+
+    fresh = await mmu.load_dll()
+    assert "dynamic_block_1" not in fresh["nodes"], "nothing half written is left behind"
