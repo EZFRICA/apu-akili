@@ -10,6 +10,17 @@ Each model call is routed to its own provider and model, chosen by measuring the
 
 See [docs/decisions.md](./docs/decisions.md) for the decisions behind it, what is still open, and what was measured against the live models.
 
+Four things live in this repository, and only the first is the product:
+
+| | What it is |
+|---|---|
+| **The tutor** | `apu/`, the memory hierarchy, the guard, the notebook and the modalities, with a Streamlit interface for the pupil, the teacher and the demo. |
+| **The live voice lab** | `apu/ui/live/`, a FastAPI and WebSocket bench for comparing real-time voice runners on the same pipeline. A test bench, not a product surface. |
+| **The chat interface** | `apu/ui/chainlit_app.py`, a chat-first front end over the same turn. |
+| **Pocket Akili** | `apu/ui/hardware/`, a specification and 3D viewer for a tactile handheld companion. A design study, with no firmware behind it. |
+
+The interfaces are deliberately several: they are aimed at different people, and a pupil picks the one that suits them. What they share is `apu/ui/turn.py`, so the rules that matter cannot drift between them.
+
 ## Why
 
 The architecture targets agents that need to run useful workloads on constrained hardware and inconsistent connectivity, the kind of machine class and budget you find in a typical West African classroom or field deployment, not a high-end workstation. Two design choices follow from that constraint:
@@ -51,7 +62,7 @@ and the runners-up are in [docs/models.md](./docs/models.md).
 | Memory write-back | `gemini-3.5-flash-lite` | same result as the previous model at a fifth of the latency |
 | Search-query gate | `gemini-3.1-flash-lite` | 10/10, and unlike the guard's model it does not block legitimate PE queries |
 | Speech out | `eleven_flash_v2_5` | first audio in 0.52 s against 11.55 s, and half the French error rate |
-| Speech in | `scribe_v1` | keeps every number in a spoken French maths question, at 1.04 s |
+| Speech in | `scribe_v2` | 1.04 s. The measurement preferred `scribe_v1`, which kept every number in a spoken French maths question: see [docs/models.md](./docs/models.md) |
 | Retrieval embeddings | local MiniLM (ONNX) | 4 ms per query and works with no network, which is the point of the architecture |
 
 Every text role goes through one OpenAI-compatible client per provider, so moving a role is a
@@ -109,7 +120,7 @@ Then open `.env` and set `GEMINI_API_KEY`, which every text role uses by default
 | `APU_QUERY_GATE_PROVIDER` / `APU_QUERY_GATE_MODEL` | `gemini` / `gemini-3.1-flash-lite` | Classifies a search query before it is sent |
 | `ELEVENLABS_API_KEY` | *(none)* | Speech in and out; without it the voice modes fall back to the browser voice |
 | `APU_TTS_PROVIDER` / `APU_TTS_MODEL` | `elevenlabs` / `eleven_flash_v2_5` | Reads the answer out loud |
-| `APU_STT_PROVIDER` / `APU_STT_MODEL` | `elevenlabs` / `scribe_v1` | Transcribes the pupil's recording |
+| `APU_STT_PROVIDER` / `APU_STT_MODEL` | `elevenlabs` / `scribe_v2` | Transcribes the pupil's recording |
 | `NEBIUS_API_KEY`, `NVIDIA_API_KEY` | *(none)* | Only needed if a role is pointed at those providers |
 | `LOCAL_EMBEDDING_MODEL` | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | Local ONNX embedder (full fastembed id) |
 | `LOCAL_EMBEDDING_DIM` | `384` | Vector width; must match the embedder |
@@ -241,6 +252,13 @@ What varies per class is data, not Colang: `registries/class_policies.json` hold
 - The off-topic counter lives in memory for the session and restarts on reconnection.
 - If the classifier cannot be reached, the turn is not answered.
 
+The classifier is shown the last thing the tutor asked and the last thing the pupil said,
+as background it must not follow. A tutor that teaches by asking questions gets answers
+like "four", "yes" or "I don't know", and judged on their own those were refused: measured
+on a real session, five turns out of seventeen were stopped, at least three of them
+wrongly. Only the pupil's latest message is ever classified, the exchange is capped and its
+delimiters cannot be forged, and everything that is not a clear allow still stops the turn.
+
 ### Web search (Tavily)
 
 `apu/tools/web_search.py` only searches for a turn the topical guard validated, excludes social networks for everyone (`GLOBAL_EXCLUDED_DOMAINS`) plus each class's own additions, and returns its sources. `apu/modality/citations.py` renders them per output channel: a list at the end in text or braille; source names said aloud (never URLs) in voice, plus the written list when a screen is available. The tutor requests a search through native OpenAI tool calls (see [docs/decisions.md](./docs/decisions.md)), and the query it produces is itself classified before anything is sent ([docs/security.md](./docs/security.md)). The `web_search` tool is only offered on turns the guard validated, and a turn makes at most 2 searches before the model must answer.
@@ -268,13 +286,17 @@ Roles and scopes come only from `registries/teacher_assignments.json`, never fro
 curl -H "X-Requester-Id: admin-cocody" http://127.0.0.1:8000/establishments/lycee-cocody/classes
 ```
 
-> **⚠️ Authentication is a stub and is not secure.** The requester is whoever the `X-Requester-Id` header says, with no password or token: anyone who can reach the API can act as any teacher or admin. Authorization from the registry is real; identity is not. See `apu/auth/identity.py` before deploying anything.
+> **⚠️ Authentication is a stub and is not secure.** The requester is whoever the `X-Requester-Id` header says, with no password or token: anyone who can reach the API can act as any teacher or admin. See `apu/auth/identity.py` before deploying anything.
+>
+> **Authorization, on the other hand, is real and tested.** Every route calls `authorize_view` first, and the scope comes only from `registries/teacher_assignments.json`: a teacher reads their own class and is refused on any other, an admin is confined to their establishment, and an unknown requester is refused outright (`tests/test_api.py`). So a teacher cannot reach another class's pupils even by asking; what a stub identity allows is claiming to be a different teacher.
+>
+> The pupil side has no equivalent: the interfaces take the pupil from a selector or a query parameter, and the notebook they open is real, persisted data. That is the gap to close before a real class uses this.
 
 ### Speech (Gemini)
 
-The voice modes record the student's question, transcribe it, and read the tutor's answer out loud (`apu/modality/voice.py`). ElevenLabs does the audio by default, Gemini is the alternative, and neither ever answers: **the transcript goes through the topical guard exactly like a typed question**, and the tutor model still writes every answer. A full spoken turn measures 8.6 s end to end. A real-time speech-to-speech model is deliberately not used, because it would answer the student itself and walk past the guard, the class policy, the off-topic counter and the escalations.
+The voice modes record the student's question, transcribe it, and read the tutor's answer out loud (`apu/modality/voice.py`). ElevenLabs does the audio by default, Gemini is the alternative, and neither ever answers: **the transcript goes through the topical guard exactly like a typed question**, and the tutor model still writes every answer. A full spoken turn measures 8.6 s end to end. A real-time speech-to-speech model is not the default, for the same reason: it answers the student on its own initiative, which is precisely where the guard has to sit. One is nevertheless available in the live lab, on the condition that makes it acceptable: its answer is held server side, audio and transcription both, until the guard has classified the question, and discarded unplayed on a refusal. That hold costs it its latency advantage (about 10 s a turn against 8.6 s), which is why the per-turn path stays the default. See [apu/ui/live/README.md](apu/ui/live/README.md).
 
-Speech is optional. Without `ELEVENLABS_API_KEY` the interface still runs in text and braille, and a spoken answer falls back to the browser's own voice. To use Gemini for either direction instead, set `APU_TTS_PROVIDER` or `APU_STT_PROVIDER` to `gemini` and name the model; the ids that API accepts differ from the names shown in the Gemini console, and only some of them exist (`gemini-3.1-flash-tts` is a 404, `gemini-3.1-flash-tts-preview` works).
+Speech is optional. Without `ELEVENLABS_API_KEY` the interface still runs in text and braille, and a spoken answer falls back to the browser's own voice. To use Gemini for either direction instead, set `APU_TTS_PROVIDER` or `APU_STT_PROVIDER` to `gemini`. The Gemini speech model ships as `gemini-3.8-flash-lite-tts`, the fastest of the seven that account exposes: 3.47 s a reading against 3.60 s for `gemini-3.8-flash-tts` and 6.29 s for the `gemini-3.1-flash-tts-preview` it replaces, with no difference a read-back can detect ([docs/models.md](./docs/models.md)). For speech in, the Gemini side is `gemini-3.5-transcribe`, which kept every number in the measured French maths set at 1.48 s against 1.04 s for the ElevenLabs transcriber. Beware that the ids the API accepts differ from the names shown in the Gemini console: `gemini-3.1-flash-tts` is a 404.
 
 A spoken turn takes about 8.6 s end to end: transcription, guard, answer, then speech.
 
@@ -318,7 +340,8 @@ During a conversation the student keeps what matters to them in a notebook (`apu
 
 - **Two ways to save.** The **💾 Save to notebook** control under each answer, or by asking the tutor ("save the key points", "just keep the rule for adding fractions"): the tutor model calls the `save_to_notebook` tool. The chat path is what a student using voice or braille relies on. The tool is offered only on turns the guard validated, and the entry is filed under the student of the guard session, never a student named by the model.
 - **Braille from the notebook.** In the **📓 Notebook** tab, pick entries, then generate a braille sheet from them as written, or from a revision summary the tutor model writes from them. Grade 1 or 2, shown in Unicode braille, with a BRF file for the embosser.
-- **The tutor never reads the notebook.** No entry is ever put into a prompt, and the store is its own SQLite file, apart from the DLL and L3. A test checks that saved text never reaches a model call.
+- **The tutor never reads the notebook.** No entry reaches the tutor's own turn: not the prompt, not a tool result, and a test drives a real turn with a marker in the notebook to check it. The store is its own SQLite file, apart from the DLL and L3.
+- **One path sends entries to a model, and only the pupil opens it.** Asking for a revision sheet, in the Notebook tab or out loud in the live lab, sends the entries the pupil chose to the small write-back model, bounded by `APU_NOTEBOOK_MAX_SHEET_ENTRIES` and `APU_NOTEBOOK_MAX_SHEET_CHARS` in `apu/notebook/service.py`. It is a request, never something a turn does on its own.
 
 ## Repository layout
 

@@ -17,7 +17,9 @@ what the pupil said (typed, or a recording transcribed first)
         ▼
   the tutor model answers, and may call tools on this turn only:
      web_search      → the query is classified on its own before anything is sent
-     save_to_notebook→ writes to the pupil's notebook, which the tutor can never read back
+     save_to_notebook→ writes to the pupil's notebook, which this turn can never read back
+                       (a revision sheet the pupil asks for is the one path out, and it
+                        goes to the write-back model, bounded, never to this one)
         │
         ▼
   the answer is rendered for the channel (text, spoken, braille) with its sources
