@@ -675,5 +675,9 @@ async def auto_execute_block_proposal(proposal: dict) -> bool:
         )
         return True
     except Exception as e:
-        logger.error(f"Auto-execute failed: {e}")
+        # Refusing, not raising: the caller reads False as a rejected proposal, and a block
+        # that could not be written must not take down the turn that suggested it. The id
+        # is in the message because "it failed" is not something anyone can act on.
+        logger.error("Refusing block proposal '%s': could not write the block (%s)",
+                     proposal.get("proposed_id"), e)
         return False

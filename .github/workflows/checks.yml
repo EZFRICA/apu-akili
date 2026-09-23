@@ -12,6 +12,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Read-only: this workflow lints and tests, it never writes to the repository. A token with
+# no more rights than that is a token an untrusted pull request cannot misuse.
+permissions:
+  contents: read
+
 concurrency:
   group: checks-${{ github.ref }}
   cancel-in-progress: true
@@ -21,13 +26,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 
       - name: Install liblouis
         # The braille translator loads the C library by name and reads its tables from disk.
         run: sudo apt-get update && sudo apt-get install -y liblouis-dev liblouis-data
 
-      - uses: astral-sh/setup-uv@v5
+      # Pinned by commit rather than by tag: a tag can be moved to different code.
+      - uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86  # v5
         with:
           enable-cache: true
 

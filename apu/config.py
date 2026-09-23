@@ -178,9 +178,11 @@ ELEVENLABS_VOICE_ID = os.environ.get("ELEVENLABS_VOICE_ID", "EXAVITQu4vr4xnSDxMa
 
 GEMINI_API_KEY_ENV = "GEMINI_API_KEY"
 GEMINI_TRANSCRIBE_MODEL = os.environ.get("GEMINI_TRANSCRIBE_MODEL", "gemini-3.8-flash")
-# Only the preview id exists on the API today (checked 2026-09-19); the console shows a
-# non-preview name that the API does not accept.
-GEMINI_TTS_MODEL = os.environ.get("GEMINI_TTS_MODEL", "gemini-3.1-flash-tts-preview")
+# The fastest of the seven speech models this account exposes, measured in this role on the
+# same texts: 3.34 s a reading against 3.60 s for gemini-3.8-flash-tts and 10.77 s for the
+# 2.5 pro preview, with no difference any read-back could detect (docs/models.md). It is the
+# fallback, not the default: ElevenLabs answers in 0.5 s.
+GEMINI_TTS_MODEL = os.environ.get("GEMINI_TTS_MODEL", "gemini-3.8-flash-lite-tts")
 # Prebuilt voice read out to the student.
 GEMINI_TTS_VOICE = os.environ.get("GEMINI_TTS_VOICE", "Kore")
 # A question is a question, not a lecture: a recording over this size is refused before it

@@ -321,7 +321,7 @@ def test_the_demo_notebook_is_seeded_and_reset_with_the_rest(akili_paths):
     assert not os.path.exists(config.NOTEBOOK_DB_PATH)
 
 
-def test_notebook_tool_alias_and_live_intents_helpers(store):
+async def test_notebook_tool_alias_and_live_intents_helpers(store):
     from apu.tools import notebook_tool
     from apu.tools.notebook import append_to_notebook, read_notebook
     from apu.ui.live.intents import handle_save_notebook, handle_summary_notebook
@@ -350,6 +350,31 @@ def test_notebook_tool_alias_and_live_intents_helpers(store):
     assert save_result["entry_id"]
 
     # Test live voice handle_summary_notebook when notes exist
-    summary = handle_summary_notebook("eleve-aya")
+    summary = await handle_summary_notebook("eleve-aya")
     assert isinstance(summary, str) and len(summary) > 0
 
+
+
+async def test_a_revision_sheet_is_the_only_way_out_and_it_goes_to_the_small_model(
+    store, fake_llm, monkeypatch, no_network
+):
+    """
+    The documentation makes two promises about the notebook: the tutor's turn never sees it,
+    and the one path that does send entries to a model is the sheet the pupil asks for. The
+    first is checked above with a real turn; this checks the second, including which model.
+    """
+    from apu import config
+    from apu.notebook import service
+
+    store.add(new_entry("eleve-test", "6eme", "math", "full", "NOTEBOOK-MARKER-9c1b",
+                        "NOTEBOOK-MARKER-9c1b", "button"))
+    fake_llm.extraction_replies = ["Fractions need a common denominator."]
+
+    sheet = await service.summarize_entries(store.entries("eleve-test"))
+
+    assert sheet == "Fractions need a common denominator."
+    [call] = fake_llm.calls
+    assert call["model"] == config.EXTRACTION_MODEL, \
+        "the sheet goes to the write-back model, not to the tutor's"
+    assert "NOTEBOOK-MARKER-9c1b" in str(call["messages"]), \
+        "the pupil asked for their notes, so their notes are what is sent"

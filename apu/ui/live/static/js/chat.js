@@ -3,6 +3,18 @@
  */
 
 export class ChatRenderer {
+  // A pupil who has just said something about their own life is not "blocked": the guard
+  // separates the two outcomes, and so does what they are shown.
+  static GUARD_BADGES = {
+    on_topic: { css: "approved", label: "approved" },
+    approved: { css: "approved", label: "approved" },
+    uncertain: { css: "approved", label: "not checked" },
+    off_topic: { css: "blocked", label: "school use only" },
+    blocked: { css: "blocked", label: "school use only" },
+    welfare: { css: "welfare", label: "personal" },
+    error: { css: "error", label: "unavailable" },
+  };
+
   constructor(containerEl) {
     this.container = containerEl;
     this.currentAssistantBubble = null;
@@ -25,8 +37,11 @@ export class ChatRenderer {
       const row = document.createElement("div");
       row.className = "message-row assistant";
 
-      const badgeHtml = meta.guard_status
-        ? `<span class="guard-badge ${meta.guard_status}">${meta.guard_status}</span>`
+      // The label a pupil reads, and the class that styles it. Both come from a fixed
+      // table rather than from the message: never interpolate a server field into HTML.
+      const badge = ChatRenderer.GUARD_BADGES[meta.guard_status];
+      const badgeHtml = badge
+        ? `<span class="guard-badge ${badge.css}">${this._escape(badge.label)}</span>`
         : "";
 
       row.innerHTML = `

@@ -37,7 +37,7 @@ from apu.core.block_detector import detect_new_block_opportunity
 from apu.core.extraction import parse_extraction
 from apu.embeddings import local_embedder
 from apu.guardrails import guard as topical_guard
-from apu.guardrails.classifier import classify_search_query
+from apu.guardrails.classifier import classify_search_query, preceding_exchange
 from apu.guardrails.session import TurnOutcome, ValidatedTurn
 from apu.logger import get_logger
 from apu.mmu import cache_l1
@@ -442,11 +442,19 @@ async def planner_node(state: AgentState):
     3. Searches student memory (DLL)
     4. Generates a pedagogical response, with web search on validated turns
     """
-    user_query = next(
-        (m.content for m in reversed(state["messages"])
-         if isinstance(m, HumanMessage)),
-        state["messages"][-1].content,
-    )
+    messages = state["messages"]
+    asked_at = max((index for index, m in enumerate(messages) if isinstance(m, HumanMessage)),
+                   default=len(messages) - 1)
+    user_query = messages[asked_at].content
+
+    # What the guard is shown besides the question itself. A tutor that teaches by asking
+    # questions gets answers like "four" or "I don't know", which mean nothing alone. The
+    # transcript may be empty (memory-only mode), and the previous answer still is not.
+    prior = [{"role": "assistant" if isinstance(m, AIMessage) else "user", "content": m.content}
+             for m in messages[:asked_at]]
+    if not any(entry["role"] == "assistant" for entry in prior) and state.get("previous_answer"):
+        prior.append({"role": "assistant", "content": state["previous_answer"]})
+    exchange = preceding_exchange(prior)
 
     # 0. Topical guard, before anything touches memory or a model. An off-topic turn gets
     # the guard's reply and nothing else: no retrieval, no answer, no memory write-back.
@@ -456,7 +464,7 @@ async def planner_node(state: AgentState):
             "planner_node needs state['session_id'] from a guard session "
             "(apu.guardrails.session.sessions.open_session)."
         )
-    decision = await topical_guard.get_topical_guard().check(session_id, user_query)
+    decision = await topical_guard.get_topical_guard().check(session_id, user_query, exchange)
     if not decision.allowed:
         return {
             "messages": [AIMessage(content=decision.reply or "")],

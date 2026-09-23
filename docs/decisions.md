@@ -154,9 +154,11 @@ With the local embedder (MiniLM, 384 dim) and HDBSCAN (cosine, `min_cluster_size
 - **Settled by measurement**: key points ran on Nano and took 11 to 17 s, because Nano emitted
   about 1700 tokens to return 140 characters. Moved to Super: 3.5 s and a better list. The
   memory write-back stays on Nano, where JSON mode keeps it to 126 tokens in 1.4 s.
-- **Open**: a voice or braille student can save by asking, but can only produce a braille sheet
-  from the Notebook tab, which needs a screen. A spoken "print my notebook in braille" would need
-  a tool that reads the notebook, which the design (the tutor never reads it) excludes.
+- **Closed since**: a spoken "summarise my notebook" works in the live lab, so a pupil with no
+  screen can now hear their notes and have them put into braille. It does not go through the
+  tutor, which still never reads the notebook: the voice intent calls the notebook service
+  directly, on entries the pupil asked for, bounded by the sheet limits. The Streamlit path
+  still needs a screen to pick which entries go in.
 
 ### Speech (2026-09-19)
 

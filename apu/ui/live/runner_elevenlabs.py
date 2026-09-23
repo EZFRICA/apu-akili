@@ -85,6 +85,8 @@ async def run_elevenlabs_sts(
             logger.info("ElevenLabs STT session active (turn start)")
             return conn
         except Exception as exc:
+            # Broad: a third party SDK opening a socket, with no documented exception
+            # surface. The turn falls back to batch transcription below.
             logger.warning("Could not connect ElevenLabs realtime STT: %s", exc)
             current_connection = None
             return None
@@ -105,11 +107,13 @@ async def run_elevenlabs_sts(
                             await current_connection.commit()
                             await asyncio.sleep(0.35)
                         except Exception as exc:
-                            logger.debug("ElevenLabs commit error: %s", exc)
+                            # The transcript already collected is used either way, and the
+                            # batch fallback below covers an empty one.
+                            logger.debug("Committing the STT turn raised: %s", exc)
                         try:
                             await current_connection.close()
-                        except Exception:
-                            pass
+                        except Exception as exc:   # closing a dead socket, nothing to do
+                            logger.debug("Closing the STT socket raised: %s", exc)
                         current_connection = None
 
                     final_text = committed_text[0].strip()
@@ -120,7 +124,9 @@ async def run_elevenlabs_sts(
                             wav_data = voice.wav_from_pcm(bytes(audio_buffer), 16000)
                             final_text = await asyncio.to_thread(voice.transcribe, wav_data, "audio/wav")
                         except Exception as err:
-                            logger.warning("Fallback transcription error: %s", err)
+                            # The last chance at hearing this turn. Nothing is classified
+                            # or answered without a transcript, so the turn simply ends.
+                            logger.warning("Fallback transcription failed: %s", err)
 
                     audio_buffer.clear()
 
@@ -150,23 +156,26 @@ async def run_elevenlabs_sts(
                             b64 = base64.b64encode(chunk).decode("utf-8")
                             await current_connection.send({"audio_base_64": b64})
                         except Exception as exc:
-                            logger.debug("Failed sending audio chunk to ElevenLabs: %s", exc)
+                            # One frame of a live stream. Losing it degrades the transcript
+                            # rather than the turn, and the socket is checked again next.
+                            logger.debug("Sending an audio frame raised: %s", exc)
 
             text_data = msg.get("text")
             if text_data:
+                # Only the parsing is guarded: wrapping the turn as well would report a
+                # fault inside the tutor as "not JSON" and lose it.
                 try:
                     parsed = json.loads(text_data)
-                    if parsed.get("type") == "text_prompt":
-                        prompt = parsed.get("text", "").strip()
-                        if prompt:
-                            asyncio.create_task(
-                                process_turn(
-                                    client_ws, prompt, session_id, student_id,
-                                    class_id, history, time.perf_counter(), session_context
-                                )
-                            )
-                except Exception as err:
-                    logger.debug("Non-JSON text msg: %s", err)
+                except (json.JSONDecodeError, TypeError) as error:
+                    logger.debug("Ignoring a text frame that is not JSON: %s", error)
+                    continue
+                if parsed.get("type") == "text_prompt" and parsed.get("text", "").strip():
+                    asyncio.create_task(
+                        process_turn(
+                            client_ws, parsed["text"].strip(), session_id, student_id,
+                            class_id, history, time.perf_counter(), session_context
+                        )
+                    )
 
     except (WebSocketDisconnect, ConnectionResetError):
         logger.info("Client disconnected (ElevenLabs)")
@@ -174,5 +183,5 @@ async def run_elevenlabs_sts(
         if current_connection:
             try:
                 await current_connection.close()
-            except Exception:
-                pass
+            except Exception as exc:   # the session is over either way
+                logger.debug("Closing the STT socket raised: %s", exc)

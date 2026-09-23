@@ -162,6 +162,13 @@ class App {
       this.prompter.appendBrailleCard(prompterCard);
     });
 
+    // The server pushes this when speech synthesis failed. The answer's text is already
+    // on screen; what was missing was any sign of why nothing was read out.
+    this.socket.on("tts_unavailable", (data) => {
+      this._appendLog(`Voice unavailable: ${data.reason || "unknown reason"}`);
+      this._setStatus("error", "Voice unavailable");
+    });
+
     this.socket.on("turn_complete", () => {
       this.chat.endTurn();
       this.prompter.endTurn();

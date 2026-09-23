@@ -370,7 +370,7 @@ with tab_memory:
         db = lance_driver.get_db()
         st.dataframe([{"table": name, "rows": db.open_table(name).count_rows()}
                       for name in lance_driver.list_table_names(db)], hide_index=True, width="stretch")
-    except Exception as error:
+    except Exception as error:   # an inspector panel: it reports, it never stops the page
         st.error(f"LanceDB: {error}")
 
 # ── a turn ───────────────────────────────────────────────────────────────────

@@ -3,7 +3,7 @@
 > **These numbers predate the model routing of 2026-09-19.** They are kept because they are
 > what led to it: the roles were compared in [models.md](./models.md) and reassigned, and the
 > pipeline was measured again afterwards. Current figures: a text turn 5.0 s (was 7.4 s), a
-> spoken turn 8.6 s (was 43.9 s), the guard 0.70 s on the attack corpus (was 1.58 s), the
+> spoken turn 8.6 s (was 43.9 s), the guard 0.79 to 0.97 s on the attack corpus, against 1.58 s before the routing change and 0.70 s before its prompt gained the preceding exchange, the
 > notebook's key points 1.0 s (was 3.5 s, and 11.6 s before that).
 
 Every component measured against the services it really uses, not mocked. Run on

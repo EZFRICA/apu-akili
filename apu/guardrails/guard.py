@@ -60,7 +60,13 @@ class TopicalGuard:
         for name, action in build_actions(self._sessions, scheduler).items():
             self._rails.register_action(action, name)
 
-    async def check(self, session_id: str, user_text: str) -> GuardDecision:
+    async def check(self, session_id: str, user_text: str, exchange: str = "") -> GuardDecision:
+        """
+        `exchange` is the tail of the conversation, from classifier.preceding_exchange.
+        A tutor that teaches by asking questions gets answers like "four" or "I don't
+        know", which mean nothing on their own: without it those were refused. It is shown
+        to the classifier as background it must not follow, and never as what to classify.
+        """
         session = self._sessions.get(session_id)
         turn_id = str(uuid.uuid4())
         # A new turn starts unvalidated, whatever happened to the previous one.
@@ -68,7 +74,8 @@ class TopicalGuard:
 
         response = await self._rails.generate_async(
             messages=[
-                {"role": "context", "content": {"session_id": session_id, "turn_id": turn_id}},
+                {"role": "context", "content": {"session_id": session_id, "turn_id": turn_id,
+                                                "preceding_exchange": exchange}},
                 {"role": "user", "content": user_text},
             ],
             options=_INPUT_RAIL_ONLY,

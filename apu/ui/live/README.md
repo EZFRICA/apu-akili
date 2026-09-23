@@ -36,14 +36,18 @@ direct audio-to-audio one, kept because its voice is the most natural of the thr
 - **Runner**: [`runner_elevenlabs.py`](./runner_elevenlabs.py)
 - **Workflow**: Per-turn audio streaming with ElevenLabs Speech-to-Text transcription.
 - **Pedagogy & Safeguards**: Once the turn boundary (`END_OF_TURN`) is signaled, the transcribed query passes through NeMo Guardrails and the Socratic agent graph before being synthesized into natural, expressive speech with ElevenLabs TTS.
-- **Strengths**: Highest speech quality, robust voice modulation, and consistent turn pacing.
+- **Strengths**: the fastest speech of everything measured, 0.52 s to a complete reading
+  against 3.47 s for the quickest Gemini model, and consistent turn pacing.
 
 ### 2. Gemini Transcribe (`gemini-3.5-transcribe-live`)
 - **Runner**: [`runner_gemini_transcribe.py`](./runner_gemini_transcribe.py)
 - **Workflow**: Real-time streaming Speech-to-Text using Gemini Live WebSocket (`response_modalities=["TEXT"]`).
 - **Live User Feedback**: Streams interim and final user transcription tokens (`user_transcript`) to the browser so the student sees their words as they speak.
 - **Pedagogy & Safeguards**: Routes the final recognized prompt into the full APU turn pipeline (NeMo Guardrails, MMU memory retrieval, Socratic agent reasoning, and TTS synthesis).
-- **Strengths**: Minimal STT latency, instant visual feedback in prompter mode, and fallback to batch transcription if background noise occurs.
+- **Strengths**: instant visual feedback in prompter mode, and a fallback to batch
+  transcription when the stream yields nothing. On the measured set it keeps every number in
+  a spoken French maths question, at 1.48 s against 1.04 s for the ElevenLabs transcriber
+  (`docs/models.md`), so it trades a little latency for a second provider.
 
 ---
 
@@ -57,7 +61,9 @@ direct audio-to-audio one, kept because its voice is the most natural of the thr
   model's audio is discarded unplayed and the guard's own reply is spoken in its place. A
   guard that cannot reach a verdict, or a turn with no transcript at all, blocks the turn:
   the failure is closed, as everywhere else in APU.
-- **Strengths**: The most natural voice, and a single connection instead of three calls.
+- **Strengths**: a single connection instead of three calls, and the most natural voice of
+  the three. That last one is a judgement, not a measurement: no read-back score separates
+  these engines, so it is recorded as an opinion rather than dressed up as data.
 - **Cost of the hold**: no latency advantage. Measured over three consecutive spoken
   turns: 10.4 s, 10.6 s, and 8.9 s for a refused one, against 8.6 s for the per-turn path.
 
@@ -77,10 +83,11 @@ turned out to be.
    ends its iteration exactly as the real one does.
 
 2. **The turn boundary has to be sent, not guessed.**
-   With the server's own voice activity detection left on, the empty `client_content` used
-   to mark the end of a turn desynchronised the session: the first question was answered
-   and every one after it was ignored, the socket staying open and idle. Automatic
-   detection is disabled and the browser's own push-to-talk boundary is sent as explicit
+   The end of a turn used to be marked with an empty `client_content` carrying
+   `turn_complete=true`, and the session then answered the first question and ignored every
+   one after it, the socket staying open and idle. The API documents why: `turn_complete`
+   unconditionally interrupts active generation. Automatic voice activity detection is
+   disabled and the browser's own push-to-talk boundary is sent instead, as explicit
    `activity_start` and `activity_end` markers.
 
 3. **A missing transcription must not look like a bad question.**
@@ -93,12 +100,36 @@ turned out to be.
    the output transcription is buffered rather than streamed token by token: streaming it
    would show the pupil, on screen, an answer the guard has not yet allowed.
 
-**Remaining limitation**: this runner does not call the tutor graph, so it has neither the
-MMU memory nor the agent tools. Notebook saves go through the voice intents in
-`intents.py`, not through `save_to_notebook`. The per-turn runners keep the full pipeline,
-which is why they remain the default.
+**Remaining limitation, and it is this runner's, not the model's**: the runner does not
+call the tutor graph, so it has neither the MMU memory nor the agent tools, and notebook
+saves go through the voice intents in `intents.py` rather than `save_to_notebook`. The
+model itself supports function calling, asynchronous by default, and search grounding, so
+wiring the tools back in is work waiting to be done rather than a wall. What cannot be
+moved into the model is the guard: a tool call is the model's own decision, and the check
+that decides whether a pupil is answered at all has to happen before the model speaks.
+Until that work is done, the per-turn runners keep the full pipeline, which is why they
+remain the default.
+
+**One API note**: `thinking_level` is not supported on `gemini-3.8-live`, so no thinking
+configuration is sent.
 
 ---
+
+## What protects a pupil here
+
+- **Every utterance is classified before anything acts on it.** The tutor path classifies
+  inside `run_turn`; a voice intent never reaches the tutor, so `pipeline.classify` does it
+  before the intent runs. A guard that cannot reach a verdict stops the turn.
+- **The socket is origin checked.** A websocket is not covered by the browser's same-origin
+  policy, so a page the pupil visits could otherwise open one to this server. Set
+  `APU_LIVE_ALLOWED_ORIGINS` (comma separated) to serve the lab from anywhere but localhost.
+- **The pupil is resolved against the roster**, and the session identifier is issued by the
+  server, so a client cannot rotate it to escape the guard's off-topic count. This is not
+  authentication: identity is a stub across the whole project, and anyone who can reach this
+  port can still pick any pupil on the roster.
+- **The log carries what happened, not what a child wrote.** Turn text is DEBUG only.
+- **The notebook is bounded**, both in what it holds and in how much of it may be sent to a
+  model, through `apu/notebook/service.py`.
 
 ## Quickstart
 
