@@ -14,10 +14,10 @@ leaderboard. The harness that produced these numbers needs several provider keys
 | Provider | Verified by calling it | Not available |
 |---|---|---|
 | **Nebius Token Factory** | 24 models listed and callable: Nemotron 3 (super, nano, ultra, 3.5 lightning), Qwen 3/3.5, DeepSeek V4, GLM 5.x, Kimi, gpt-oss, gemma-3-27b, and one embedder (Qwen3-Embedding-8B) | no speech, no images |
-| **Gemini** | text models up to `gemini-3.8-flash` (3.6, 3.7, 3.8 and the `gemini-flash-latest` alias all answer), `gemini-3.5-transcribe` (speech to text), `gemini-3.1-flash-tts-preview` (text to speech), `gemini-embedding-001` and `-2`, the Nano Banana image models | the console's display names are not API ids: `gemini-3.1-flash-tts` returns 404, only the `-preview` id exists; the omni models (`gemini-omni-1.1-flash`, `gemini-omni-flash-preview`) refuse `generateContent` with "This model only supports Interactions API" |
+| **Gemini** | text models up to `gemini-3.8-flash` (3.6, 3.7, 3.8 and the `gemini-flash-latest` alias all answer), `gemini-3.5-transcribe` (speech to text), the speech models `gemini-3.8-flash-tts`, `gemini-3.8-flash-lite-tts`, `an-unreleased-model`, `an-unreleased-model`, `gemini-3.1-flash-tts-preview` and the two 2.5 previews, `gemini-embedding-001` and `-2`, the Nano Banana image models | the console's display names are not API ids: `gemini-3.1-flash-tts` returns 404, only the `-preview` id exists; the omni models (`gemini-omni-1.1-flash`, `gemini-omni-flash-preview`) refuse `generateContent` with "This model only supports Interactions API" |
 | **NVIDIA NIM** | 82 models are listed, but this key can call only some: `nemotron-3-super-120b-a12b`, `nemotron-3-ultra-550b-a55b`, `nemotron-3.5-lightning-30b-a3b`, `gpt-oss-20b`, `gemma-4-31b-it`, and the embedder `nemotron-3-embed-1b` | `llama-3.1-nemotron-70b-instruct`, `nemotron-nano-3-30b-a3b`, `llama-3.2-nv-embedqa-1b-v1`, `nv-embedqa-mistral-7b-v2`, `arctic-embed-l` all answer 404; `llama-3.1-nemoguard-8b-topic-control` answers 500 on every call; kimi, glm and the safety guards time out |
 | **ElevenLabs** | speech synthesis with the account's own voices (`eleven_flash_v2_5`, `eleven_turbo_v2_5`, `eleven_multilingual_v2`), streaming and raw PCM included, and three transcribers: `scribe_v1`, `scribe_v1_experimental`, `scribe_v2` | the key has no `models_read` permission, so the catalogue cannot be listed; library voices are refused on a free plan (HTTP 402); `scribe_v2_realtime` is refused by the file endpoint, it belongs to the websocket API |
-| **Gemini Live** (websocket) | `gemini-3.8-live` and `gemini-3.1-flash-live-preview` both stream speech out, and `gemini-3.8-live` transcribes speech in | `gemini-3.5-transcribe-live` aborts with code 1008 whatever the configuration tried; Live transcription needs explicit activity markers, since automatic voice detection never closed the turn on a recorded clip (60 s timeout) |
+| **Gemini Live** (websocket) | `gemini-3.8-live` and `gemini-3.1-flash-live-preview` both stream speech out, `gemini-3.8-live` transcribes speech in, and `gemini-3.5-transcribe-live` transcribes a recorded clip in 2.8 s through the shipped runner | `gemini-3.5-transcribe-live` was written up here as aborting with code 1008 whatever was tried; that was the configuration, not the model, and it is corrected below. Live transcription needs explicit activity markers, since automatic voice detection never closed the turn on a recorded clip (60 s timeout) |
 
 The NVIDIA finding matters for the architecture: the models that survive are the same
 Nemotrons that Nebius serves, and every one of them was **slower through NIM** in these runs,
@@ -207,6 +207,14 @@ error rate and a correct transcription, because they normalise spoken numbers in
 Their other errors are real. ElevenLabs makes the opposite kind of mistake on the same clip,
 hearing "un corps" or "encore" for "un quart", which is a real error.
 
+**A correction: `gemini-3.5-transcribe-live` does work.** It is recorded above as aborting
+with code 1008 under every configuration tried. It does not: driven with explicit
+`activity_start` and `activity_end` markers, with automatic voice activity detection
+disabled, it returned `"What is one half plus one quarter?"` for a synthesised clip in
+**2.8 s**, through `apu/ui/live/runner_gemini_transcribe.py` and the websocket the lab
+serves. The earlier finding was about how the session was driven, not about the model, and
+the same mistake silenced `gemini-3.8-live` for a while (see `apu/ui/live/README.md`).
+
 **Gemini 3.8 Live is not a transcriber.** It works, with explicit activity markers, but it is
 a dialogue model: 5.5 s per clip and the worst accuracy of the set, because it is listening in
 order to reply rather than to transcribe.
@@ -226,6 +234,44 @@ the whole answer, and the first audio the pupil hears, which is what streaming c
 | gemini-live: gemini-3.1-flash-live-preview | 16.30 s | 1.39 s | 14.8 s | 0% |
 | gemini: gemini-2.5-flash-preview-tts | 9.89 s | 9.89 s | 15.3 s | 50%, see the correction below |
 | gemini: gemini-3.1-flash-tts-preview (current) | 11.55 s | 11.55 s | 16.1 s | 0% |
+
+### The Gemini speech models, measured again a generation later
+
+The table above was taken when `gemini-3.1-flash-tts-preview` was the only Gemini speech model
+this account could reach. Seven exist now, and all nine candidates were put through the same
+protocol: four tutor answers in English and French, the fractions and numbers a speech model
+gets wrong, three readings each, every clip read back by `scribe_v2` and scored against the
+text that was sent.
+
+| Candidate | Latency | Audio produced | Faster than real time | Failures |
+|---|---:|---:|---:|---:|
+| elevenlabs: eleven_turbo_v2_5 | **0.46 s** | 7.5 s | 16.3 x | 0 |
+| elevenlabs: eleven_flash_v2_5 | 0.52 s | 7.3 s | 14.0 x | 0 |
+| gemini: an-unreleased-model | 3.34 s | 9.4 s | 2.8 x | 0 |
+| gemini: **gemini-3.8-flash-lite-tts** (current Gemini fallback) | 3.47 s | 9.6 s | 2.8 x | 0 |
+| gemini: gemini-3.8-flash-tts | 3.60 s | 8.4 s | 2.3 x | 0 |
+| gemini: an-unreleased-model | 3.90 s | 8.9 s | 2.3 x | 0 |
+| gemini: gemini-3.1-flash-tts-preview (the previous default) | 6.29 s | 9.7 s | 1.5 x | 0 |
+| gemini: gemini-2.5-flash-preview-tts | 6.92 s | 8.9 s | 1.3 x | 0 |
+| gemini: gemini-2.5-pro-preview-tts | 10.77 s | 11.1 s | 1.0 x | 0 |
+
+**A caveat on speech in.** The code loads `scribe_v2`, while the measurement below chose
+`scribe_v1`: `scribe_v2` dropped a number on one clip of the maths set, and a tutor that
+mishears "un quart" is worse than a slower one. The two are within 0.02 s of each other, so
+the choice costs nothing either way. This is a decision to make deliberately rather than by
+drift, and `APU_STT_MODEL` sets it.
+
+**The read-back separates nothing here, and saying otherwise would be dishonest.** All nine
+came back at the same error rate, to the third decimal, and that constant is a French
+reference text written without accents which the transcriber restores accented. On these
+texts every candidate is intelligible; what the measurement separates is latency.
+
+Two consequences. `gemini-3.8-flash-lite-tts` replaces `gemini-3.1-flash-tts-preview` as the
+Gemini model this project ships, because it reads the same answer in **3.47 s instead of
+6.29 s**. And ElevenLabs stays the default, seven times faster than the best Gemini
+candidate, with the Gemini path kept as the fallback that removes the dependency on a second
+provider. What no automatic measurement settles is how natural a voice sounds, which is a
+product judgement and is recorded as such.
 
 **The Live API fixes most of the problem, and ElevenLabs fixes all of it.** Gemini Live streams
 at real time, so the pupil hears the first words after 1.4 s instead of waiting 11.5 s, even
@@ -278,12 +324,13 @@ and a test pins them together.
 | Role | Model | Measured after the change |
 |---|---|---|
 | Tutor answer | `gemini:gemini-3.8-flash` | a text turn end to end: **5.0 s**, against 7.4 s before |
-| Topical guard | `gemini:gemini-3.5-flash-lite` | the 69-attack corpus through the real rail: **69/69 held, 0.70 s median**, against 1.58 s |
+| Topical guard | `gemini:gemini-3.5-flash-lite` | the 69-attack corpus through the real rail: **69/69 held**, at 0.70 s median then and 0.79 to 0.97 s since the prompt gained the preceding exchange, against 1.58 s |
 | Memory write-back | `gemini:gemini-3.5-flash-lite` | 0.94 s, against 1.74 s |
 | Search-query gate | `gemini:gemini-3.1-flash-lite` | unchanged accuracy, a third of the latency |
 | Notebook key points and revision sheet | `gemini:gemini-3.5-flash-lite` | **1.0 s each**, against 6.7 s and 3.5 s on the tutor model |
 | Speech out | `elevenlabs:eleven_flash_v2_5` | a spoken turn end to end: **8.6 s**, against 43.9 s |
-| Speech in | `elevenlabs:scribe_v1` | 0.9 s, and it kept "un quart" intact in French |
+| Speech in | `elevenlabs:scribe_v2` | 1.04 s. See the caveat below: the measurement preferred `scribe_v1` |
+| Speech out, Gemini fallback | `gemini:gemini-3.8-flash-lite-tts` | 3.47 s a reading, against 6.29 s for the previous default |
 | Retrieval embeddings | local MiniLM (ONNX) | 8 ms per query, unchanged and still offline |
 
 **The notebook moved twice, and that is the point.** Its two calls were moved off the small

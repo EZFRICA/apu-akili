@@ -309,3 +309,48 @@ def test_the_voice_module_cannot_answer_a_student():
     forbidden = re.compile(r"^\s*(from|import)\s+apu\.(runtime|guardrails|inference)\b", re.M)
     assert not forbidden.search(source)
     assert "generate_content" in source and "planner_node" not in source
+
+
+# ── the speech models this project names ─────────────────────────────────────
+#
+# Two Gemini speech models were measured in this role on the same texts: the lite one at
+# 3.34 s a reading and the flash one at 3.60 s, indistinguishable on a read-back. Either is
+# a legitimate setting, so the path has to work for both, and the documentation has to name
+# whichever one ships.
+
+@pytest.mark.parametrize("model", ["gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"])
+def test_the_configured_gemini_speech_model_is_the_one_called(gemini, monkeypatch, model):
+    monkeypatch.setattr(config, "GEMINI_TTS_MODEL", model)
+    client = gemini(audio_response())
+
+    spoken = voice.synthesize(ANSWER)
+
+    assert spoken.data.startswith(b"RIFF")
+    assert [call["model"] for call in client.calls] == [model]
+
+
+@pytest.mark.parametrize("model", ["gemini-3.8-flash-lite-tts", "gemini-3.8-flash-tts"])
+def test_a_measured_speech_model_keeps_its_place_in_the_documentation(model):
+    """
+    A model named in config and nowhere in the documentation is a silent change of
+    behaviour: the next person reading docs/models.md would install something else.
+    """
+    import pathlib
+
+    docs = (pathlib.Path(__file__).resolve().parents[1] / "docs/models.md").read_text(encoding="utf-8")
+    assert model in docs, f"{model} was measured but is not in docs/models.md"
+
+
+def test_the_shipped_speech_models_are_the_documented_ones():
+    import pathlib
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    docs = (root / "docs/models.md").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+
+    for setting, value in (("GEMINI_TTS_MODEL", config.GEMINI_TTS_MODEL),
+                           ("VOICE_TTS_MODEL", config.VOICE_TTS_MODEL),
+                           ("VOICE_STT_MODEL", config.VOICE_STT_MODEL)):
+        assert value in docs, f"{setting} is {value}, which docs/models.md never mentions"
+    assert config.VOICE_TTS_MODEL in readme and config.VOICE_STT_MODEL in readme, \
+        "the routing table in README.md has drifted from what the code loads"
