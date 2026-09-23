@@ -136,3 +136,56 @@ def test_the_chat_offers_the_supported_modes(mode, channels):
 
     assert chainlit_app.MODES[mode] == channels
     assert channels in {(i.value, o.value) for i, o in SUPPORTED_COMBINATIONS}
+
+
+async def test_the_guard_sees_the_exchange_this_question_follows(akili_paths, no_network,
+                                                                 stub_embeddings, fake_llm,
+                                                                 monkeypatch):
+    """
+    A tutor that teaches by asking questions gets answers like "four". Alone they mean
+    nothing and were refused, so the guard is shown the turn before. What it classifies is
+    still only the pupil's latest message.
+    """
+    from unittest.mock import AsyncMock, MagicMock
+
+    from apu.guardrails.guard import GuardDecision
+    from apu.guardrails.session import TurnOutcome
+
+    guard = MagicMock()
+    guard.check = AsyncMock(return_value=GuardDecision(allowed=True,
+                                                       outcome=TurnOutcome.UNCERTAIN))
+    monkeypatch.setattr("apu.guardrails.guard.get_topical_guard", lambda: guard)
+    fake_llm.main_replies = ["Two quarters, so three quarters in all."]
+    fake_llm.extraction_replies = ["{}"]
+
+    await run("four", history=[{"role": "user", "content": "Explain fractions"},
+                               {"role": "assistant", "content": "How many quarters in one half?"}])
+
+    message, exchange = guard.check.await_args.args[1], guard.check.await_args.args[2]
+    assert message == "four", "only the latest message is classified"
+    assert exchange.splitlines() == ["Tutor: How many quarters in one half?",
+                                     "Student: Explain fractions"]
+
+
+async def test_memory_only_mode_still_gives_the_guard_the_last_answer(akili_paths, no_network,
+                                                                      stub_embeddings, fake_llm,
+                                                                      monkeypatch):
+    """
+    With history_turns=0 the transcript is empty, which is exactly when a bare "yes" is
+    hardest to read. The previous answer is still known, so the guard gets it.
+    """
+    from unittest.mock import AsyncMock, MagicMock
+
+    from apu.guardrails.guard import GuardDecision
+    from apu.guardrails.session import TurnOutcome
+
+    guard = MagicMock()
+    guard.check = AsyncMock(return_value=GuardDecision(allowed=True,
+                                                       outcome=TurnOutcome.UNCERTAIN))
+    monkeypatch.setattr("apu.guardrails.guard.get_topical_guard", lambda: guard)
+    fake_llm.main_replies = ["Good. Now try one third plus one sixth."]
+    fake_llm.extraction_replies = ["{}"]
+
+    await run("yes", history_turns=0, previous_answer="Shall we try another one?")
+
+    assert guard.check.await_args.args[2] == "Tutor: Shall we try another one?"

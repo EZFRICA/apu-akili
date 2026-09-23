@@ -56,7 +56,9 @@ def build_actions(sessions: SessionRegistry, scheduler: DeferredWriteScheduler |
         turn_id = context["turn_id"]
         try:
             response = await llm.generate_async(
-                build_classifier_prompt(context.get("user_message") or ""), temperature=0.0
+                build_classifier_prompt(context.get("user_message") or "",
+                                        context.get("preceding_exchange") or ""),
+                temperature=0.0
             )
         except Exception as error:
             # Recorded, not raised: NeMo would swallow the exception into a generic reply.
