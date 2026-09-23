@@ -37,6 +37,7 @@ from apu.modality.plain_text import plain_text  # noqa: E402
 from apu.notebook.service import save_entry  # noqa: E402
 from apu.notebook.store import KIND_LABELS, EntryKind, EntryOrigin  # noqa: E402
 from apu.ui import turn as turn_service  # noqa: E402
+from apu.ui.messages import pupil_facing_reason  # noqa: E402
 
 logger = get_logger(__name__)
 
@@ -169,6 +170,8 @@ class ElevenLabsRealtimeSTT:
             self._is_active = True
             return True
         except Exception as e:
+            # Broad: a provider SDK opening a socket. The recording is still buffered, and
+            # the batch transcription below is what actually has to work.
             logger.warning("Could not connect to ElevenLabs Realtime STT: %s", e)
             self._error = str(e)
             return False
@@ -181,7 +184,9 @@ class ElevenLabsRealtimeSTT:
             b64 = base64.b64encode(pcm_bytes).decode("utf-8")
             await self.connection.send({"audio_base_64": b64})
         except Exception as e:
-            logger.warning("Failed sending audio chunk to Realtime STT: %s", e)
+            # One frame of a live stream. The session is marked dead and the turn falls
+            # back to transcribing the buffer.
+            logger.warning("Sending an audio frame to Realtime STT raised: %s", e)
             self._error = str(e)
             self._is_active = False
 
@@ -195,12 +200,14 @@ class ElevenLabsRealtimeSTT:
                 await self.connection.commit()
                 await asyncio.sleep(0.35)
         except Exception as e:
-            logger.warning("Error during STT commit: %s", e)
+            # Whatever was committed so far is still used, and an empty result falls back
+            # to batch transcription.
+            logger.warning("Committing the STT turn raised: %s", e)
         finally:
             try:
                 await self.connection.close()
-            except Exception:
-                pass
+            except Exception as exc:   # closing a dead socket, nothing to do
+                logger.debug("Closing the STT socket raised: %s", exc)
             self._is_active = False
 
         full_text = " ".join(self._committed_texts).strip()
@@ -282,7 +289,8 @@ async def audio_end():
         try:
             transcript = await stt.stop()
         except Exception as error:
-            logger.warning("ElevenLabs Realtime STT finalize failed: %s", error)
+            # The buffer is still there: the fallback below is what decides this turn.
+            logger.warning("Finalising the realtime transcript raised: %s", error)
 
     # Fallback to standard batch transcription if realtime streaming did not produce a transcript
     if not transcript and buffer:
@@ -291,15 +299,22 @@ async def audio_end():
             async with cl.Step(name="Transcribing (fallback)", type="tool"):
                 transcript = await cl.make_async(voice.transcribe)(wav_data, "audio/wav")
         except voice.VoiceUnavailable as error:
+            # VoiceUnavailable explains itself to whoever installed this ("set
+            # ELEVENLABS_API_KEY..."), which is not the child sitting in front of it.
+            logger.warning("Speech to text is unavailable: %s", error)
             if live_msg:
                 await live_msg.remove()
-            await cl.Message(content=f"I could not hear that: {error}", author="Akili").send()
+            await cl.Message(content="I cannot hear you at the moment. You can type your "
+                                     "question instead.", author="Akili").send()
             return
         except Exception as error:
-            logger.warning("Batch transcription fallback failed: %s", error)
+            # The last chance at hearing this turn, so the pupil is told. What they are
+            # told is a sentence, not a provider's exception text.
+            logger.warning("Batch transcription failed: %s", error)
             if live_msg:
                 await live_msg.remove()
-            await cl.Message(content=f"Transcription error: {error}", author="Akili").send()
+            await cl.Message(content="I could not hear that. Could you say it again?",
+                             author="Akili").send()
             return
 
     if not transcript:
@@ -399,8 +414,9 @@ async def braille_body(result):
     grade = BrailleGrade.GRADE_2 if settings.get("grade") == "Grade 2" else BrailleGrade.GRADE_1
     try:
         sheet = braille_sheet(result.written or result.content, grade)
-    except Exception as error:   # liblouis missing or a text it cannot translate
-        return f"{result.content}\n\n*Braille unavailable: {error}*", []
+    except Exception as error:   # liblouis missing, or a text it cannot translate
+        logger.warning("Braille is unavailable: %s", error)
+        return f"{result.content}\n\n*Braille is not available on this device.*", []
     return (
         f"{sheet.unicode_braille}\n\n<details><summary>Show in print</summary>\n\n"
         f"{plain_text(result.written or result.content)}\n\n</details>",
@@ -418,8 +434,12 @@ async def spoken_elements(result):
             return [cl.Audio(name="Answer", content=audio.data, mime=audio.mime_type, display="inline",
                              auto_play=True)]
     except Exception as error:
-        logger.warning("Spoken answer generation failed: %s", error)
-        return [cl.Text(name="Voice unavailable", content=str(error), display="inline")]
+        # Broad: speech crosses the network to a provider. The answer's text is already in
+        # the message, so what is missing is only the reason it was not read out.
+        logger.warning("Speech synthesis failed: %s", error)
+        return [cl.Text(name="Voice unavailable",
+                        content="The answer could not be read out loud just now.",
+                        display="inline")]
     return []
 
 
@@ -446,7 +466,11 @@ async def save(kind: str):
             origin=EntryOrigin.BUTTON,
         )
     except Exception as error:
-        await cl.Message(content=f"Not saved: {error}", author="Akili").send()
+        # A full notebook is the pupil's own limit and is quoted; anything else is a fault
+        # of ours, and its text is not for a child (see apu/ui/messages.py).
+        logger.warning("Notebook save failed for %s: %s", student["student_id"], error)
+        await cl.Message(content=pupil_facing_reason(error, "I could not save that just now."),
+                         author="Akili").send()
         return
     await cl.Message(
         content=f"📓 Saved to your notebook ({KIND_LABELS[EntryKind(entry.kind)].lower()}).",

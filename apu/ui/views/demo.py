@@ -26,14 +26,14 @@ if live[0].button("Test the tutor model", width="stretch"):
     try:
         reply = seed.live_check_nemotron()
         live[0].success(f"Replied “{reply}” in {time.monotonic() - started:.1f} s")
-    except Exception as error:
+    except Exception as error:   # a connectivity check: the failure IS the result
         live[0].error(f"Failed: {error}")
 if live[1].button("Test Tavily", width="stretch"):
     started = time.monotonic()
     try:
         results = seed.live_check_tavily()
         live[1].success(f"{results} result(s) in {time.monotonic() - started:.1f} s")
-    except Exception as error:
+    except Exception as error:   # a connectivity check: the failure IS the result
         live[1].error(f"Failed: {error}")
 
 st.subheader("Demo data")
