@@ -1,7 +1,10 @@
-"""Hardware 3D Viewer Server for APU Akili Portable Tactile Device.
+"""Static server for the Pocket Akili 3D viewer.
 
-Run with:
     uv run python -m apu.ui.hardware.app [--port 8766]
+
+It serves this directory and nothing else: the viewer is a design study, with no tutor, no
+pupil data and no model behind it. Kept separate from the lab on purpose, so that looking at
+the hardware never starts anything that could reach a child's notebook.
 """
 
 import argparse
@@ -17,7 +20,8 @@ class HardwareHTTPHandler(SimpleHTTPRequestHandler):
         super().__init__(*args, directory=directory, **kwargs)
 
     def log_message(self, format, *args):
-        # Keep terminal output clean
+        # One prefixed line per request instead of the base class's bare output, so this
+        # server is distinguishable when it runs beside the others.
         sys.stderr.write(f"[APU Hardware 3D] {self.address_string()} - {format % args}\n")
 
 
@@ -39,7 +43,9 @@ def main():
     if args.open:
         try:
             webbrowser.open(url)
-        except Exception:
+        except (OSError, webbrowser.Error):
+            # No browser on this machine, or none it can start: the URL is printed above
+            # and the server runs either way.
             pass
 
     try:
