@@ -38,8 +38,11 @@ def configure_root_logger():
 
     # Reduce noise from external libraries. The openai client logs full request
     # options at DEBUG, prompts included, which does not belong in a runtime log.
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("httpcore").setLevel(logging.WARNING)
+    # The names carry the major version of the vendored client, so "httpx" alone leaves
+    # httpx2 and httpcore2 at DEBUG: that is every request and response header of every
+    # model call, which is what buries this log.
+    for noisy in ("httpx", "httpx2", "httpcore", "httpcore2"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("openai").setLevel(logging.WARNING)
     # The websocket client used by the live runners logs every frame it sends at DEBUG,
