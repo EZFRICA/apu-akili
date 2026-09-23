@@ -8,12 +8,20 @@ Orchestrates:
 """
 
 import asyncio
+import base64
 import time
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from apu import config
+from apu.guardrails import guard as topical_guard
+from apu.guardrails.actions import GENTLE_REPLY
+from apu.guardrails.classifier import preceding_exchange
+from apu.guardrails.session import UnknownSession
+from apu.guardrails.session import sessions as guard_sessions
 from apu.logger import get_logger
+from apu.mmu import dll as mmu
 from apu.modality.voice import synthesize
+from apu.ui.messages import pupil_facing_reason
 from apu.ui.live.intents import (
     is_save_notebook_intent,
     is_summary_notebook_intent,
@@ -34,30 +42,10 @@ async def safe_push(ws: WebSocket, payload: dict) -> bool:
     except (WebSocketDisconnect, RuntimeError, ConnectionResetError):
         return False
     except Exception as exc:
+        # A socket being torn down raises whatever the server stack happens to raise, and
+        # a pupil who closed their browser is not an incident. DEBUG, and carry on.
         logger.debug("safe_push exception: %s", exc)
         return False
-
-
-def _load_student_profile(student_id: str = "", class_id: str = "") -> dict:
-    """Read student profile from MMU L1 RAM cache."""
-    try:
-        from apu.mmu import cache_l1
-        content = cache_l1.get("student_profile")
-        return {"content": content, "student_id": student_id} if content else {}
-    except Exception as exc:
-        logger.debug("Could not load student profile %s: %s", student_id, exc)
-        return {}
-
-
-def _load_learning_preferences(student_id: str = "", class_id: str = "") -> dict:
-    """Read learning preferences from MMU L1 RAM cache."""
-    try:
-        from apu.mmu import cache_l1
-        content = cache_l1.get("learning_preferences")
-        return {"content": content, "student_id": student_id} if content else {}
-    except Exception as exc:
-        logger.debug("Could not load learning preferences %s: %s", student_id, exc)
-        return {}
 
 
 async def call_guard_and_tutor(
@@ -71,9 +59,8 @@ async def call_guard_and_tutor(
     Pass user text through NeMo Guardrails + APU tutor pipeline.
     Returns: (final_response, guard_action, guard_status, subject)
     """
-    from apu.guardrails.session import UnknownSession
-    from apu.guardrails.session import sessions as guard_sessions
-    from apu.mmu import dll as mmu
+    # Deferred on purpose: importing the tutor graph pulls langgraph and the whole runtime
+    # into a process that may only ever serve the page.
     from apu.ui.turn import run_turn
 
     session_id = session_context.get("session_id") or f"live-{student_id}"
@@ -123,8 +110,6 @@ async def synthesize_and_send(client_ws: WebSocket, text: str, t_start: float) -
         spoken_audio = await asyncio.to_thread(synthesize, text)
         audio_dur = round(len(spoken_audio.data) / (24000 * 2), 2)
         total_lat = round((time.perf_counter() - t_start) * 1000)
-
-        import base64
         audio_b64 = base64.b64encode(spoken_audio.data).decode("ascii")
 
         await safe_push(client_ws, {
@@ -135,8 +120,62 @@ async def synthesize_and_send(client_ws: WebSocket, text: str, t_start: float) -
             "total_latency_ms": total_lat,
         })
     except Exception as exc:
-        logger.warning("TTS failed: %s", exc)
+        # Broad on purpose: speech crosses the network to a provider, and every layer of
+        # that has its own exceptions. The turn keeps its text either way.
+        logger.warning("Speech synthesis failed: %s", exc)
         await safe_push(client_ws, {"type": "tts_unavailable", "reason": str(exc)})
+
+
+async def push_braille(client_ws: WebSocket, text: str) -> bool:
+    """
+    The answer as braille cells. Returns whether any were sent.
+
+    Silence beats a card of empty or apologetic cells: a pupil reading with their fingers
+    would take whatever is in it for the answer. The caller uses the return value to avoid
+    announcing braille that is not there.
+    """
+    grade_1, grade_2 = compute_braille(text)
+    if not grade_1:
+        return False
+    await safe_push(client_ws, {"type": "braille_format", "original_text": text,
+                                "braille_g1": grade_1, "braille_g2": grade_2})
+    return True
+
+
+async def classify(session_id: str, student_id: str, class_id: str, prompt: str,
+                   history: list[dict] | None = None) -> tuple[bool, str, str]:
+    """
+    Classify what the pupil said. Returns (allowed, reply_to_speak_instead, outcome).
+
+    A voice intent acts on the pupil's words without the tutor ever being called, so without
+    this the phrase "save in my notes that <anything>" reached the notebook unclassified.
+    Anything other than a clear allow blocks the turn, including a guard that is unavailable.
+    """
+    try:
+        guard_sessions.get(session_id)
+    except UnknownSession:
+        guard_sessions.open_session(student_id=student_id, class_id=class_id, session_id=session_id)
+    try:
+        decision = await topical_guard.get_topical_guard().check(
+            session_id, prompt, preceding_exchange(history))
+    except Exception as error:
+        # Broad and deliberate: whatever went wrong, an unclassified turn is not answered.
+        logger.warning("The guard could not classify this turn: %s", error)
+        return False, ("I cannot check that this is about your schoolwork right now, "
+                       "so let us try again in a moment."), "error"
+    if decision.allowed:
+        return True, "", decision.outcome.value
+    # off_topic and welfare both stop the turn, and a child who has just disclosed distress
+    # must not be shown the badge meant for somebody asking about football.
+    return False, decision.reply or GENTLE_REPLY, decision.outcome.value
+
+
+async def refuse(client_ws: WebSocket, reply: str, t_start: float, outcome: str = "blocked") -> None:
+    """Speak the guard's own reply, and close the turn without the tutor being called."""
+    await safe_push(client_ws, {"type": "assistant_token", "token": reply,
+                                "guard_status": outcome})
+    await synthesize_and_send(client_ws, reply, t_start)
+    await safe_push(client_ws, {"type": "turn_complete", "status": outcome})
 
 
 async def process_turn(
@@ -154,12 +193,37 @@ async def process_turn(
     if not prompt:
         return
 
-    logger.info("Processing turn for %s: '%s'", student_id, prompt)
+    # DEBUG, not INFO: the log file outlives the process and the pupils are minors, so it
+    # carries what happened, never what a child wrote. See apu/logger.py.
+    logger.info("Processing a turn for %s (%d characters)", student_id, len(prompt))
+    logger.debug("Turn text for %s: %r", student_id, prompt)
+
+    intent = (is_save_notebook_intent(prompt) or is_summary_notebook_intent(prompt)
+              or is_braille_intent(prompt))
+    if intent:
+        # An intent bypasses the tutor, so it bypasses the guard that the tutor runs. It is
+        # classified here instead. A turn without an intent is classified by run_turn.
+        allowed, reply, outcome = await classify(session_id, student_id, class_id, prompt,
+                                                 history)
+        if not allowed:
+            logger.info("Voice intent stopped by the guard (student=%s, outcome=%s)",
+                        student_id, outcome)
+            await refuse(client_ws, reply, t_start, outcome=outcome)
+            return
 
     # 1. Handle Voice Intent: Save to Notebook
     if is_save_notebook_intent(prompt):
         logger.info("Voice intent: Save notebook (student=%s)", student_id)
-        nb_res = await asyncio.to_thread(handle_save_notebook, student_id, history, prompt)
+        try:
+            nb_res = await asyncio.to_thread(handle_save_notebook, student_id, history, prompt)
+        except Exception as error:
+            # A full notebook raises NotebookFull. Unreported, it left the pupil waiting for
+            # a turn_complete that never came, with no way to know why.
+            logger.warning("Notebook save failed for %s: %s", student_id, error)
+            await refuse(client_ws, pupil_facing_reason(error, "I could not save that just now. "
+                                                  "Let us try again in a moment."),
+                         t_start, outcome="error")
+            return
         ack_text = nb_res["ack_text"]
 
         await safe_push(client_ws, {
@@ -171,14 +235,7 @@ async def process_turn(
         })
         await safe_push(client_ws, {"type": "assistant_token", "token": ack_text})
 
-        g1, g2 = compute_braille(ack_text)
-        await safe_push(client_ws, {
-            "type": "braille_format",
-            "original_text": ack_text,
-            "braille_g1": g1,
-            "braille_g2": g2,
-        })
-
+        await push_braille(client_ws, ack_text)
         await synthesize_and_send(client_ws, ack_text, t_start)
         history.append({"role": "user", "content": prompt})
         history.append({"role": "assistant", "content": ack_text})
@@ -188,7 +245,16 @@ async def process_turn(
     # 2. Handle Voice Intent: Summarize Notebook
     if is_summary_notebook_intent(prompt):
         logger.info("Voice intent: Summarize notebook (student=%s)", student_id)
-        summary_text = await asyncio.to_thread(handle_summary_notebook, student_id)
+        try:
+            summary_text = await handle_summary_notebook(student_id)
+        except Exception as error:
+            # Reading the notebook and summarising it crosses sqlite and the network, and
+            # the pupil asked out loud: they are told, rather than left with silence.
+            logger.warning("Notebook summary failed for %s: %s", student_id, error)
+            await refuse(client_ws, pupil_facing_reason(error, "I could not read your notebook just "
+                                                  "now. Let us try again in a moment."),
+                         t_start, outcome="error")
+            return
 
         await safe_push(client_ws, {
             "type": "notebook_summary",
@@ -197,14 +263,7 @@ async def process_turn(
         })
         await safe_push(client_ws, {"type": "assistant_token", "token": summary_text})
 
-        g1, g2 = compute_braille(summary_text)
-        await safe_push(client_ws, {
-            "type": "braille_format",
-            "original_text": summary_text,
-            "braille_g1": g1,
-            "braille_g2": g2,
-        })
-
+        await push_braille(client_ws, summary_text)
         await synthesize_and_send(client_ws, summary_text, t_start)
         history.append({"role": "user", "content": prompt})
         history.append({"role": "assistant", "content": summary_text})
@@ -214,23 +273,18 @@ async def process_turn(
     # 3. Handle Voice Intent: Braille translation
     if is_braille_intent(prompt):
         logger.info("Voice intent: Braille format (student=%s)", student_id)
-        target_text = ""
-        for msg in reversed(history):
-            if msg.get("role") == "assistant" and msg.get("content"):
-                target_text = msg["content"]
-                break
+        target_text = next((entry["content"] for entry in reversed(history)
+                            if entry.get("role") == "assistant" and entry.get("content")), "")
+
+        # What is said out loud has to match what was actually produced: announcing a
+        # transcription that liblouis could not make would send a pupil to an empty card.
         if not target_text:
-            target_text = "Hello! Here is the APU tutor in Braille."
+            ack = "There is nothing to put into braille yet. Ask me about your lesson first."
+        elif await push_braille(client_ws, target_text):
+            ack = "Here is the braille transcription of our last explanation."
+        else:
+            ack = "Braille is not available on this device at the moment."
 
-        g1, g2 = compute_braille(target_text)
-        ack = "Here is the Braille transcription of our last explanation."
-
-        await safe_push(client_ws, {
-            "type": "braille_format",
-            "original_text": target_text,
-            "braille_g1": g1,
-            "braille_g2": g2,
-        })
         await safe_push(client_ws, {"type": "assistant_token", "token": ack})
 
         await synthesize_and_send(client_ws, ack, t_start)
@@ -246,7 +300,9 @@ async def process_turn(
             student_id, class_id, prompt, history, session_context
         )
     except Exception as exc:
-        logger.error("Error executing APU pipeline: %s", exc, exc_info=True)
+        # The last net before the pupil: the turn ends with something they can act on
+        # rather than silence, and the trace goes to the log for whoever reads it.
+        logger.error("The turn could not be completed: %s", exc, exc_info=True)
         tutor_reply = "I am experiencing a temporary issue. Could you please repeat your question?"
         guard_action = "error"
         guard_status = "error"
@@ -264,19 +320,9 @@ async def process_turn(
         "pipeline_ms": pipeline_lat,
     })
 
-    # Generate Braille cards automatically for any assistant response
-    g1, g2 = compute_braille(tutor_reply)
-    await safe_push(client_ws, {
-        "type": "braille_format",
-        "original_text": tutor_reply,
-        "braille_g1": g1,
-        "braille_g2": g2,
-    })
-
-    # Synthesize audio (TTS)
+    await push_braille(client_ws, tutor_reply)
     await synthesize_and_send(client_ws, tutor_reply, t_start)
 
-    # Append to history as clean role/content dictionaries
     history.append({"role": "user", "content": prompt})
     history.append({"role": "assistant", "content": tutor_reply})
 

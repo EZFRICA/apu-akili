@@ -81,12 +81,14 @@ async def run_gemini_transcribe_live(
                                     "text": text,
                                     "replace": True,
                                 })
-                except Exception as e:
-                    logger.debug("Gemini receive closed: %s", e)
+                except Exception as exc:
+                    # Includes the cancellation this task gets at the end of every turn.
+                    logger.debug("The STT stream ended: %s", exc)
 
             receive_task = asyncio.create_task(_receive())
             return session
         except Exception as exc:
+            # Broad: a provider SDK opening a socket. The turn falls back to batch STT.
             logger.warning("Could not connect Gemini Live STT: %s", exc)
             active_session = None
             return None
@@ -106,14 +108,16 @@ async def run_gemini_transcribe_live(
                         try:
                             await session.send_client_content(turns=[], turn_complete=True)
                             await asyncio.sleep(0.35)
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            # The transcript collected so far is used either way, and the
+                            # batch fallback below covers an empty one.
+                            logger.debug("Closing the STT turn raised: %s", exc)
                         if receive_task:
                             receive_task.cancel()
                         try:
                             await ctx.__aexit__(None, None, None)
-                        except Exception:
-                            pass
+                        except Exception as exc:   # a socket per turn, closed per turn
+                            logger.debug("Closing the STT session raised: %s", exc)
                         active_session = None
 
                     final_text = current_transcript[0].strip()
@@ -124,7 +128,9 @@ async def run_gemini_transcribe_live(
                             wav_data = voice.wav_from_pcm(bytes(audio_buffer), 16000)
                             final_text = await asyncio.to_thread(voice.transcribe, wav_data, "audio/wav")
                         except Exception as err:
-                            logger.warning("Fallback transcription error: %s", err)
+                            # The last chance at hearing this turn. Nothing is classified
+                            # or answered without a transcript, so the turn simply ends.
+                            logger.warning("Fallback transcription failed: %s", err)
 
                     audio_buffer.clear()
 
@@ -154,23 +160,26 @@ async def run_gemini_transcribe_live(
                                 audio=types.Blob(data=chunk, mime_type="audio/pcm;rate=16000")
                             )
                         except Exception as err:
-                            logger.debug("Failed sending chunk to Gemini: %s", err)
+                            # One frame of a live stream: degrades the transcript, not the
+                            # turn. The socket is checked again on the next frame.
+                            logger.debug("Sending an audio frame raised: %s", err)
 
             text_data = msg.get("text")
             if text_data:
+                # Only the parsing is guarded: wrapping the turn as well would report a
+                # fault inside the tutor as "not JSON" and lose it.
                 try:
                     parsed = json.loads(text_data)
-                    if parsed.get("type") == "text_prompt":
-                        prompt = parsed.get("text", "").strip()
-                        if prompt:
-                            asyncio.create_task(
-                                process_turn(
-                                    client_ws, prompt, session_id, student_id,
-                                    class_id, history, time.perf_counter(), session_context
-                                )
-                            )
-                except Exception as err:
-                    logger.debug("Non-JSON text msg: %s", err)
+                except (json.JSONDecodeError, TypeError) as error:
+                    logger.debug("Ignoring a text frame that is not JSON: %s", error)
+                    continue
+                if parsed.get("type") == "text_prompt" and parsed.get("text", "").strip():
+                    asyncio.create_task(
+                        process_turn(
+                            client_ws, parsed["text"].strip(), session_id, student_id,
+                            class_id, history, time.perf_counter(), session_context
+                        )
+                    )
 
     except (WebSocketDisconnect, ConnectionResetError):
         logger.info("Client disconnected (Gemini Transcribe)")
@@ -179,5 +188,5 @@ async def run_gemini_transcribe_live(
             ctx, _ = active_session
             try:
                 await ctx.__aexit__(None, None, None)
-            except Exception:
-                pass
+            except Exception as exc:   # the session is over either way
+                logger.debug("Closing the STT session raised: %s", exc)
