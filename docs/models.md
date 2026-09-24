@@ -14,7 +14,7 @@ leaderboard. The harness that produced these numbers needs several provider keys
 | Provider | Verified by calling it | Not available |
 |---|---|---|
 | **Nebius Token Factory** | 24 models listed and callable: Nemotron 3 (super, nano, ultra, 3.5 lightning), Qwen 3/3.5, DeepSeek V4, GLM 5.x, Kimi, gpt-oss, gemma-3-27b, and one embedder (Qwen3-Embedding-8B) | no speech, no images |
-| **Gemini** | text models up to `gemini-3.8-flash` (3.6, 3.7, 3.8 and the `gemini-flash-latest` alias all answer), `gemini-3.5-transcribe` (speech to text), the speech models `gemini-3.8-flash-tts`, `gemini-3.8-flash-lite-tts`, `an-unreleased-model`, `an-unreleased-model`, `gemini-3.1-flash-tts-preview` and the two 2.5 previews, `gemini-embedding-001` and `-2`, the Nano Banana image models | the console's display names are not API ids: `gemini-3.1-flash-tts` returns 404, only the `-preview` id exists; the omni models (`gemini-omni-1.1-flash`, `gemini-omni-flash-preview`) refuse `generateContent` with "This model only supports Interactions API" |
+| **Gemini** | text models up to `gemini-3.8-flash` (3.6, 3.7, 3.8 and the `gemini-flash-latest` alias all answer), `gemini-3.5-transcribe` (speech to text), the speech models `gemini-3.8-flash-tts`, `gemini-3.8-flash-lite-tts`, `gemini-3.1-flash-tts-preview` and the two 2.5 previews, plus two the API marks confidential and which are therefore not named here, `gemini-embedding-001` and `-2`, the Nano Banana image models | the console's display names are not API ids: `gemini-3.1-flash-tts` returns 404, only the `-preview` id exists; the omni models (`gemini-omni-1.1-flash`, `gemini-omni-flash-preview`) refuse `generateContent` with "This model only supports Interactions API" |
 | **NVIDIA NIM** | 82 models are listed, but this key can call only some: `nemotron-3-super-120b-a12b`, `nemotron-3-ultra-550b-a55b`, `nemotron-3.5-lightning-30b-a3b`, `gpt-oss-20b`, `gemma-4-31b-it`, and the embedder `nemotron-3-embed-1b` | `llama-3.1-nemotron-70b-instruct`, `nemotron-nano-3-30b-a3b`, `llama-3.2-nv-embedqa-1b-v1`, `nv-embedqa-mistral-7b-v2`, `arctic-embed-l` all answer 404; `llama-3.1-nemoguard-8b-topic-control` answers 500 on every call; kimi, glm and the safety guards time out |
 | **ElevenLabs** | speech synthesis with the account's own voices (`eleven_flash_v2_5`, `eleven_turbo_v2_5`, `eleven_multilingual_v2`), streaming and raw PCM included, and three transcribers: `scribe_v1`, `scribe_v1_experimental`, `scribe_v2` | the key has no `models_read` permission, so the catalogue cannot be listed; library voices are refused on a free plan (HTTP 402); `scribe_v2_realtime` is refused by the file endpoint, it belongs to the websocket API |
 | **Gemini Live** (websocket) | `gemini-3.8-live` and `gemini-3.1-flash-live-preview` both stream speech out, `gemini-3.8-live` transcribes speech in, and `gemini-3.5-transcribe-live` transcribes a recorded clip in 2.8 s through the shipped runner | `gemini-3.5-transcribe-live` was written up here as aborting with code 1008 whatever was tried; that was the configuration, not the model, and it is corrected below. Live transcription needs explicit activity markers, since automatic voice detection never closed the turn on a recorded clip (60 s timeout) |
@@ -243,14 +243,18 @@ protocol: four tutor answers in English and French, the fractions and numbers a 
 gets wrong, three readings each, every clip read back by `scribe_v2` and scored against the
 text that was sent.
 
+Two of the candidates are marked `[Confidential]` by the API, and their measurements appear
+below without their names. An early access catalogue belongs to whoever granted the access,
+and a model identifier is part of it.
+
 | Candidate | Latency | Audio produced | Faster than real time | Failures |
 |---|---:|---:|---:|---:|
 | elevenlabs: eleven_turbo_v2_5 | **0.46 s** | 7.5 s | 16.3 x | 0 |
 | elevenlabs: eleven_flash_v2_5 | 0.52 s | 7.3 s | 14.0 x | 0 |
-| gemini: an-unreleased-model | 3.34 s | 9.4 s | 2.8 x | 0 |
+| gemini: an unreleased model, not named here | 3.34 s | 9.4 s | 2.8 x | 0 |
 | gemini: **gemini-3.8-flash-lite-tts** (current Gemini fallback) | 3.47 s | 9.6 s | 2.8 x | 0 |
 | gemini: gemini-3.8-flash-tts | 3.60 s | 8.4 s | 2.3 x | 0 |
-| gemini: an-unreleased-model | 3.90 s | 8.9 s | 2.3 x | 0 |
+| gemini: an unreleased model, not named here | 3.90 s | 8.9 s | 2.3 x | 0 |
 | gemini: gemini-3.1-flash-tts-preview (the previous default) | 6.29 s | 9.7 s | 1.5 x | 0 |
 | gemini: gemini-2.5-flash-preview-tts | 6.92 s | 8.9 s | 1.3 x | 0 |
 | gemini: gemini-2.5-pro-preview-tts | 10.77 s | 11.1 s | 1.0 x | 0 |
