@@ -265,6 +265,32 @@ the trenches in 1916, a hero who says he wants to die in a novel, and how the he
 - **Authentication is a stub**, so none of this defends against someone choosing another
   pupil's identity in the demo interface. See [decisions.md](./decisions.md).
 
+### The live socket was reachable from the whole network
+
+Found while reviewing the branch rather than by an exercise, and fixed in it. Two things,
+together:
+
+- The lab bound `0.0.0.0`, every interface on the machine. On school wifi that is every
+  machine in the school.
+- The origin check allowed a connection that sent **no `Origin` header at all**, on the
+  reasoning that the threat it addressed was a web page. A script is not a web page. It
+  needed only to omit the header to get a socket, name any pupil on the roster, and have
+  that pupil's notebook read back to it.
+
+Each one alone was survivable. Together they meant the pupil roster and the notebooks were
+one `curl` away from anyone on the same wifi, with no credential of any kind.
+
+**Fixed.** The lab binds loopback and `--host` opens it deliberately, printing what that
+means when it does. A missing `Origin` is accepted only from a loopback peer, which is the
+developer's own machine and is how the test suite drives the socket; an `Origin` that is
+present is judged against the allowlist wherever it comes from.
+
+Measured: with the default bind, a connection to this machine's own wifi address is refused
+outright. With `--host 0.0.0.0`, a foreign origin is refused at the handshake with HTTP 403
+while the page the lab serves is accepted. The remote path with no header is covered by unit
+tests against fabricated peer addresses rather than over a real socket, because this
+machine's firewall refuses inbound connections before the server sees them.
+
 ## Cost of the defence
 
 | Layer | When it runs | Time |

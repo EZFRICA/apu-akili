@@ -7,6 +7,7 @@ Exposes:
   - WebSocket /ws/{model_id} : Dispatches to ElevenLabs STS or Gemini Live runners
 """
 
+import ipaddress
 import os
 from pathlib import Path
 from uuid import uuid4
@@ -47,11 +48,37 @@ ALLOWED_ORIGINS = {
 }
 
 
+def _is_loopback(host: str | None) -> bool:
+    """
+    Whether a peer address belongs to this machine.
+
+    The whole of 127.0.0.0/8 is loopback, not just 127.0.0.1, and a server bound to an
+    alias sees those addresses. Comparing against a short list of spellings would have
+    called a peer on this very machine a stranger.
+    """
+    if not host:
+        return False
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        # A hostname rather than an address. Resolving it here would let a name decide.
+        return False
+
+
 def _origin_allowed(websocket: WebSocket) -> bool:
     origin = websocket.headers.get("origin")
-    # No Origin header at all is a non-browser client (a test, a script), which the browser
-    # threat this check addresses does not cover.
-    return origin is None or origin in ALLOWED_ORIGINS
+    if origin is not None:
+        return origin in ALLOWED_ORIGINS
+
+    # No Origin header at all is a non-browser client: curl, a script, a test runner. That
+    # used to be allowed outright, on the grounds that the threat being addressed was a web
+    # page. It is not only a web page. A script needs only to leave the header off, and it
+    # then had a socket it could drive as any pupil on the roster and read that pupil's
+    # notebook back. From this machine that is the developer, and it is how the suite drives
+    # the socket; from anywhere else it is the allowlist being walked around.
+    return _is_loopback(websocket.client.host if websocket.client else None)
 
 
 def _roster() -> list[dict]:

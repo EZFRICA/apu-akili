@@ -148,8 +148,8 @@ Start the live server with `uv`:
 uv run python -m apu.ui.live.proxy
 ```
 
-The server starts by default at **http://localhost:8765**, and it is the only server there
-is. It serves two front ends and the layer under them:
+The server starts by default at **http://localhost:8765**, **on this machine only**, and it
+is the only server there is. It serves two front ends and the layer under them:
 
 | Address | What |
 |---|---|
@@ -162,10 +162,27 @@ There is no second command. The stage used to have a static server of its own on
 it could serve the page but never make it work, since every key on the device needs this
 socket.
 
+### Who may open a socket
+
+This process holds the API keys and the pupils' notebooks, and a websocket is not covered by
+the browser's same-origin policy, so the only gate is a check on where a connection comes
+from. Two rules:
+
+- An `Origin` header is judged against `APU_LIVE_ALLOWED_ORIGINS`, wherever it comes from.
+- **No `Origin` header at all is accepted only from this machine.** curl, a script and the
+  test runner send none, which is fine on the developer's own machine. It used to be
+  accepted from anywhere, so a script on the same wifi had only to leave the header off to
+  get a socket it could drive as any pupil on the roster, and read that pupil's notebook
+  back.
+
+Together with the loopback bind, reaching this socket from another machine now takes both a
+deliberate `--host` and an origin on the allowlist.
+
 ## Key Files
 
 - [`server.py`](./server.py): FastAPI server, student registry API (`/api/students`), and WebSocket router (`/ws/{model_id}`).
-- [`proxy.py`](./proxy.py): Uvicorn runner entry point on port 8765.
+- [`proxy.py`](./proxy.py): Uvicorn runner, port 8765, bound to loopback. `--host` opens it
+  to a network deliberately and says what that means when it does.
 - [`pipeline.py`](./pipeline.py): Turn execution orchestration (guardrails, tutor, TTS, braille, WebSocket safe push).
 - [`intents.py`](./intents.py): Regex matching and execution for voice intents (save, summary, braille).
 - [`runner_elevenlabs.py`](./runner_elevenlabs.py): ElevenLabs STS per-turn streaming runner.

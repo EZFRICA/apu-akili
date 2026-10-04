@@ -31,7 +31,6 @@ from apu.ui.live.pipeline import call_guard_and_tutor, safe_push
 from apu.ui.live.server import app
 from apu.ui.turn import TurnResult
 
-
 # ==============================================================================
 # 1. Voice Intents Tests
 # ==============================================================================
@@ -249,7 +248,7 @@ def test_server_http_endpoints():
 
 def test_server_websocket_unknown_model():
     client = TestClient(app)
-    with client.websocket_connect("/ws/invalid-model-name") as ws:
+    with client.websocket_connect("/ws/invalid-model-name", headers=FROM_THE_LAB) as ws:
         msg = ws.receive_json()
         assert msg.get("type") == "error"
         assert "Unknown model" in msg.get("message", "")
@@ -351,7 +350,8 @@ def _run_live_turns(monkeypatch, prompts, turns, verdicts, speech=None, audio_pa
     monkeypatch.setattr(runner, "synthesize_and_send", AsyncMock())
 
     received = []
-    with TestClient(app).websocket_connect("/ws/gemini-3.8-live") as ws:
+    with TestClient(app).websocket_connect("/ws/gemini-3.8-live",
+                                          headers=FROM_THE_LAB) as ws:
         for turn_input in (prompts or speech):
             if prompts:
                 ws.send_text(json.dumps({"type": "text_prompt", "text": turn_input}))
@@ -575,6 +575,12 @@ async def test_an_internal_fault_is_not_read_out_to_a_pupil(monkeypatch, akili_p
     assert [p["status"] for p in ws.pushed if p["type"] == "turn_complete"] == ["error"]
 
 
+FROM_THE_LAB = {"Origin": "http://localhost:8765"}
+"""The header a browser sends when the lab serves the page. A connection with no Origin at
+all is refused unless it comes from this machine, so a test that drives the socket says
+where it is coming from, the way the page it stands for does."""
+
+
 # ==============================================================================
 # 7. Who may open a socket, and as whom
 # ==============================================================================
@@ -585,16 +591,22 @@ def test_a_socket_from_another_site_is_refused():
     pupil visits, while this server runs, could drive the tutor and read a notebook back.
     """
     client = TestClient(app)
-    with pytest.raises(WebSocketDisconnect):
+    # Refused at the handshake, before the socket is ever accepted. Asserting that, rather
+    # than that a later read raises, is what makes this fail fast: with the check bypassed
+    # the socket opens and waits for audio, and a test that read from it would hang rather
+    # than report anything at all.
+    with pytest.raises(WebSocketDisconnect) as refused:
         with client.websocket_connect("/ws/gemini-3.5-transcribe-live",
-                                      headers={"Origin": "https://evil.example"}) as ws:
-            ws.receive_json()
+                                      headers={"Origin": "https://evil.example"}):
+            pass
+    assert refused.value.code == 1008, "the close code the server sends for a bad origin"
 
 
 def test_an_unknown_student_cannot_open_a_session():
     """Identity is a stub, but an identifier nobody on this device knows is still refused."""
     client = TestClient(app)
-    with client.websocket_connect("/ws/gemini-3.5-transcribe-live?student_id=not-a-pupil") as ws:
+    with client.websocket_connect("/ws/gemini-3.5-transcribe-live?student_id=not-a-pupil",
+                                  headers=FROM_THE_LAB) as ws:
         message = ws.receive_json()
     assert message["type"] == "error" and "not-a-pupil" in message["message"]
 
@@ -672,7 +684,7 @@ def test_a_socket_from_the_lab_itself_is_accepted():
     """
     client = TestClient(app)
     with client.websocket_connect("/ws/not-a-model",
-                                  headers={"Origin": "http://localhost:8765"}) as ws:
+                                  headers=FROM_THE_LAB) as ws:
         message = ws.receive_json()
     assert message["type"] == "error" and "not-a-model" in message["message"]
 
@@ -772,7 +784,8 @@ def test_the_page_never_offers_a_pupil_the_socket_would_refuse(monkeypatch):
 
     assert client.get("/api/students").json() == []
     with pytest.raises(WebSocketDisconnect):
-        with client.websocket_connect("/ws/gemini-3.5-transcribe-live?student_id=eleve-aya") as ws:
+        with client.websocket_connect("/ws/gemini-3.5-transcribe-live?student_id=eleve-aya",
+                                          headers=FROM_THE_LAB) as ws:
             assert ws.receive_json()["type"] == "error"
             ws.receive_json()
 
@@ -783,7 +796,8 @@ def test_the_page_offers_exactly_the_pupils_the_socket_accepts():
 
     assert offered, "the demo registry should list pupils"
     for student_id in offered:
-        with client.websocket_connect(f"/ws/not-a-model?student_id={student_id}") as ws:
+        with client.websocket_connect(f"/ws/not-a-model?student_id={student_id}",
+                                      headers=FROM_THE_LAB) as ws:
             message = ws.receive_json()
         assert "not-a-model" in message["message"], f"{student_id} was refused as unknown"
 
@@ -839,3 +853,78 @@ async def test_the_braille_intent_says_so_when_there_is_nothing_to_translate(mon
 
     spoken = " ".join(p["token"] for p in ws.pushed if p["type"] == "assistant_token")
     assert "nothing to put into braille" in spoken
+
+
+# ── the header that was simply left off ──────────────────────────────────────
+
+class _Peer:
+    """A websocket as the origin check sees it: who is calling, and what they claim."""
+
+    def __init__(self, host, origin=None):
+        self.client = None if host is None else type("Address", (), {"host": host})()
+        self.headers = {} if origin is None else {"origin": origin}
+
+
+@pytest.mark.parametrize("host", ["127.0.0.1", "127.0.0.2", "127.1.2.3", "::1", "localhost"])
+def test_a_client_on_this_machine_may_leave_the_header_off(host):
+    """
+    curl, a script, this test runner. The developer's own machine, which is not a threat.
+    All of 127.0.0.0/8 is this machine, not only 127.0.0.1, and a server on an alias sees
+    the rest of it.
+    """
+    from apu.ui.live.server import _origin_allowed
+
+    assert _origin_allowed(_Peer(host)) is True
+
+
+@pytest.mark.parametrize("host", ["192.168.1.47", "10.0.0.8", "203.0.113.5",
+                                  "evil.example", "", "127.0.0.1.evil.example"])
+def test_a_client_on_the_network_may_not(host):
+    """
+    The allowlist existed for a web page, and a script walked around it by not sending the
+    header a web page has to send. On school wifi that is a socket driven as any pupil on
+    the roster, and their notebook read back.
+    """
+    from apu.ui.live.server import _origin_allowed
+
+    assert _origin_allowed(_Peer(host)) is False
+
+
+def test_a_name_that_merely_looks_like_this_machine_is_not_this_machine():
+    """A hostname is not an address, and resolving one here would let a name decide."""
+    from apu.ui.live.server import _is_loopback
+
+    assert _is_loopback("127.0.0.1.evil.example") is False
+    assert _is_loopback("localhost.evil.example") is False
+    assert _is_loopback(None) is False
+
+
+def test_an_origin_is_judged_on_the_allowlist_wherever_it_comes_from():
+    """Being on this machine does not make a bad origin good."""
+    from apu.ui.live.server import _origin_allowed
+
+    assert _origin_allowed(_Peer("127.0.0.1", "https://evil.example")) is False
+    assert _origin_allowed(_Peer("192.168.1.47", "http://localhost:8765")) is True
+
+
+def test_a_connection_with_no_peer_at_all_is_refused():
+    """Nothing to judge is not a reason to allow."""
+    from apu.ui.live.server import _origin_allowed
+
+    assert _origin_allowed(_Peer(None)) is False
+
+
+def test_the_lab_binds_this_machine_only_unless_it_is_told_otherwise():
+    """
+    It bound every interface. This process holds the API keys and the pupils' notebooks,
+    and on school wifi every machine could reach it.
+    """
+    import inspect
+
+    from apu.ui.live import proxy
+
+    assert proxy.DEFAULT_HOST == "127.0.0.1"
+    source = inspect.getsource(proxy)
+    assert 'host="0.0.0.0"' not in source
+    assert "--host" in source, "a presenter on a second machine can still ask for it"
+    assert "every machine that can reach this one" in source, "and is told what that means"
