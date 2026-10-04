@@ -35,7 +35,7 @@ KIND_LABELS = {
 KIND_DESCRIPTIONS = {
     EntryKind.FULL: "The whole answer, word for word.",
     EntryKind.KEY_POINTS: "A short list of the essentials (rules, methods, an example), written by the tutor from this answer.",
-    EntryKind.EXCERPT: "Only the part you choose: delete what you don't need in the box below.",
+    EntryKind.EXCERPT: "Only the part you choose: delete what you do not need in the box below.",
 }
 
 

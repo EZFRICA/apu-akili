@@ -7,6 +7,7 @@ Exposes:
   - WebSocket /ws/{model_id} : Dispatches to ElevenLabs STS or Gemini Live runners
 """
 
+import ipaddress
 import os
 from pathlib import Path
 from uuid import uuid4
@@ -39,16 +40,45 @@ ALLOWED_ORIGINS = {
     origin.strip()
     for origin in os.environ.get(
         "APU_LIVE_ALLOWED_ORIGINS",
+        # This server serves every front end it feeds, so every allowed origin is its own.
+        # A second port was on this list while a separate static server existed for the
+        # keynote stage; that server is gone, and so is the exception it needed.
         "http://localhost:8765,http://127.0.0.1:8765").split(",")
     if origin.strip()
 }
 
 
+def _is_loopback(host: str | None) -> bool:
+    """
+    Whether a peer address belongs to this machine.
+
+    The whole of 127.0.0.0/8 is loopback, not just 127.0.0.1, and a server bound to an
+    alias sees those addresses. Comparing against a short list of spellings would have
+    called a peer on this very machine a stranger.
+    """
+    if not host:
+        return False
+    if host == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        # A hostname rather than an address. Resolving it here would let a name decide.
+        return False
+
+
 def _origin_allowed(websocket: WebSocket) -> bool:
     origin = websocket.headers.get("origin")
-    # No Origin header at all is a non-browser client (a test, a script), which the browser
-    # threat this check addresses does not cover.
-    return origin is None or origin in ALLOWED_ORIGINS
+    if origin is not None:
+        return origin in ALLOWED_ORIGINS
+
+    # No Origin header at all is a non-browser client: curl, a script, a test runner. That
+    # used to be allowed outright, on the grounds that the threat being addressed was a web
+    # page. It is not only a web page. A script needs only to leave the header off, and it
+    # then had a socket it could drive as any pupil on the roster and read that pupil's
+    # notebook back. From this machine that is the developer, and it is how the suite drives
+    # the socket; from anywhere else it is the allowlist being walked around.
+    return _is_loopback(websocket.client.host if websocket.client else None)
 
 
 def _roster() -> list[dict]:
@@ -81,8 +111,40 @@ def _known_student(student_id: str, class_id: str) -> tuple[str, str] | None:
 
 app = FastAPI(title="APU Live Voice Lab")
 
+class FreshStaticFiles(StaticFiles):
+    """
+    Static files a browser is told not to keep.
+
+    StaticFiles sends an etag and a last-modified date and no Cache-Control at all, which
+    leaves a browser free to guess a freshness lifetime from the file's age and serve the
+    file without asking again. Measured: an edited stylesheet kept being served from the
+    browser's own cache while the server held the new one. These two directories exist to
+    be looked at while they are being changed, so nothing here is worth keeping.
+    """
+
+    def is_not_modified(self, response_headers, request_headers) -> bool:
+        return False
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-store, must-revalidate"
+        return response
+
+
 # Mount modular static files
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+app.mount("/static", FreshStaticFiles(directory=str(STATIC_DIR)), name="static")
+
+# The plumbing both front ends run on: the socket to this server, and the microphone it
+# carries. It lived twice, written separately against this same protocol, and a defect
+# fixed in one copy went on running in the other.
+SHARED_DIR = Path(__file__).parent.parent / "shared"
+app.mount("/shared", FreshStaticFiles(directory=str(SHARED_DIR)), name="shared")
+
+PRESENTATION_DIR = Path(__file__).parent.parent / "presentation"
+if PRESENTATION_DIR.exists():
+    app.mount("/presentation",
+              FreshStaticFiles(directory=str(PRESENTATION_DIR), html=True),
+              name="presentation")
 
 
 @app.get("/")

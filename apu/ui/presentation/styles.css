@@ -1,0 +1,1235 @@
+/* ==============================================================================
+   APU Akili · Steve Jobs Keynote Product Presentation Edition
+   - Background: linear-gradient(135deg, #D54D48 0%, #D58F48 50%, #D54885 100%)
+   - 94% Screen Rounded Rectangle (Radius 48px+ / ElevenLabs Capsule)
+   - Video camera layer with 40% opacity filter
+   - Continuous Stream Teleprompter + Braille Space
+   - Base 3D Tactile Equipment + Proximity Hand Cursor + Shockwave Clicks
+   - Lateral Menus (Left Parts Drawer & Right Voice Specs Card)
+   ============================================================================== */
+
+:root {
+  --bg-gradient: linear-gradient(135deg, #D54D48 0%, #D58F48 50%, #D54885 100%);
+  --bg-capsule-glass: rgba(18, 12, 18, 0.65);
+  --bg-glass-panel: rgba(20, 14, 22, 0.72);
+  --bg-glass-heavy: rgba(14, 9, 16, 0.88);
+  
+  --border-subtle: rgba(255, 255, 255, 0.16);
+  --border-glow: rgba(255, 255, 255, 0.32);
+  --border-focus: #ffffff;
+
+  --accent-cyan: #38bdf8;
+  --accent-gold: #f59e0b;
+  --accent-emerald: #10b981;
+  --accent-red: #ef4444;
+  --accent-purple: #c084fc;
+
+  --text-main: #ffffff;
+  --text-muted: rgba(255, 255, 255, 0.82);
+  --text-dim: rgba(255, 255, 255, 0.55);
+
+  --font-sans: "Outfit", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --capsule-radius: clamp(36px, 4.5vw, 64px);
+  --transition-smooth: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg-gradient);
+  background-attachment: fixed;
+  color: var(--text-main);
+  font-family: var(--font-sans);
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The stage is not selectable, because dragging across it should not paint it blue. The
+   words are: a presenter copies what was said, and a reader selects what it reads. */
+.prompter-text,
+.braille-keynote-card,
+.inspector-description {
+  user-select: text;
+}
+
+/* Subtle cinematic lens flare overlay */
+body::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.18) 0%, transparent 65%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Proximity Hand Cursor Mode */
+body.tactile-hand-cursor,
+body.tactile-hand-cursor * {
+  cursor: grab !important;
+}
+body.tactile-hand-cursor *:active {
+  cursor: grabbing !important;
+}
+
+/* ------------------------------------------------------------------------------
+   1. Keynote Top Navigation Bar
+   ------------------------------------------------------------------------------ */
+.keynote-navbar {
+  position: absolute;
+  top: 14px;
+  left: 3.2vw;
+  right: 3.2vw;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  background: var(--bg-glass-panel);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 9999px;
+  z-index: 50;
+  box-shadow: 0 12px 36px -10px rgba(0, 0, 0, 0.5);
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-badge {
+  background: #ffffff;
+  color: #D54D48;
+  font-weight: 800;
+  font-size: 13px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  letter-spacing: 0.8px;
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.4);
+}
+
+.brand-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.brand-edition {
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  background: rgba(255, 255, 255, 0.16);
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.nav-center {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(14, 8, 22, 0.85);
+  padding: 4px;
+  border-radius: 9999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.55);
+}
+
+.model-pill-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+.model-pill-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+}
+.model-pill-btn.active {
+  background: #ffffff;
+  color: #090d16;
+  font-weight: 700;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.student-selector {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+}
+.student-selector select {
+  background: rgba(14, 8, 22, 0.85);
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 8px;
+  outline: none;
+  cursor: pointer;
+}
+
+.status-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  background: rgba(16, 185, 129, 0.2);
+  color: #a7f3d0;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  transition: all 0.3s ease;
+}
+.status-pill.connected {
+  background: rgba(16, 185, 129, 0.2);
+  color: #a7f3d0;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+.status-pill.listening {
+  background: rgba(239, 68, 68, 0.3);
+  color: #fecaca;
+  border-color: rgba(239, 68, 68, 0.6);
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.4);
+}
+.status-pill.listening .status-dot {
+  background: #ef4444;
+  animation: pulseBeacon 0.9s infinite ease-in-out;
+}
+.status-pill.thinking {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fde68a;
+  border-color: rgba(245, 158, 11, 0.5);
+}
+.status-pill.thinking .status-dot {
+  background: #f59e0b;
+  animation: pulseBeacon 0.7s infinite ease-in-out;
+}
+.status-pill.talking {
+  background: rgba(168, 85, 247, 0.25);
+  color: #e9d5ff;
+  border-color: rgba(168, 85, 247, 0.5);
+  box-shadow: 0 0 16px rgba(168, 85, 247, 0.3);
+}
+.status-pill.offline,
+.status-pill.error {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fecaca;
+  border-color: rgba(239, 68, 68, 0.35);
+}
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.icon-btn {
+  background: rgba(15, 10, 24, 0.75);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  /* 40, not 34: these are the keyboard path to the microphone and the camera, and a
+     34-pixel target is a miss away from being hit on a trackpad mid-sentence. */
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  position: relative;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+.icon-btn:hover {
+  background: rgba(30, 20, 48, 0.95);
+  border-color: #ffffff;
+  transform: scale(1.06);
+}
+
+#toggle-mic-btn {
+  background: linear-gradient(135deg, #172554 0%, #1e40af 100%);
+  color: #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6), 0 0 14px rgba(30, 64, 175, 0.6);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+#toggle-mic-btn:hover {
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7), 0 0 18px rgba(37, 99, 235, 0.8);
+}
+
+#toggle-mic-btn.active {
+  background: linear-gradient(135deg, #991b1b 0%, #dc2626 100%) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.85) !important;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6), 0 0 22px rgba(220, 38, 38, 0.85) !important;
+  animation: micPulse 1.4s infinite ease-in-out !important;
+}
+
+#toggle-mic-btn.active::before,
+#toggle-mic-btn.active::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid #f43f5e;
+  animation: rippleRing 2s infinite cubic-bezier(0, 0.2, 0.8, 1);
+  pointer-events: none;
+}
+#toggle-mic-btn.active::after {
+  inset: -12px;
+  border-color: #fb7185;
+  animation: rippleRing 2s infinite 0.8s cubic-bezier(0, 0.2, 0.8, 1);
+}
+
+@keyframes rippleRing {
+  0% { transform: scale(0.8); opacity: 0.8; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+@keyframes micPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+/* ------------------------------------------------------------------------------
+   2. Main Central Viewport (94% of Screen ElevenLabs Rounded Capsule)
+   ------------------------------------------------------------------------------ */
+.keynote-center-viewport {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  /* Room for the floating header, and for the camera bar at the foot of the stage. */
+  padding: 72px 0 26px;
+}
+
+/* 94% Screen Rounded Rectangle */
+.elevenlabs-capsule-frame {
+  position: relative;
+  width: 94vw;
+  /* Fills what the viewport actually leaves. At 94vh plus the header padding the capsule
+     was taller than the window, so the foot of the device, its ports and the braille
+     button fell below the fold, on a page that cannot scroll. */
+  height: 100%;
+  max-height: calc(100vh - 98px);
+  background: var(--bg-capsule-glass);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border-radius: var(--capsule-radius);
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  overflow: hidden;
+  box-shadow: 
+    0 32px 100px -20px rgba(0, 0, 0, 0.75),
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 80px rgba(213, 77, 72, 0.35);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Video Layer with 80% Opacity Filter */
+.camera-video-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  opacity: 0.8 !important;
+  filter: opacity(80%) !important;
+  z-index: 1;
+}
+
+/* Opacité au dessus (Top translucent overlay at 40% opacity for enhanced prompter readability & contrast) */
+.keynote-top-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* Fits its content, up to half the capsule. At a fixed 52% the band covered the stage
+     even when the prompter held two lines, which is the empty space that was in the way. */
+  height: auto;
+  min-height: 108px;
+  max-height: 52%;
+  background: linear-gradient(
+    180deg,
+    rgba(14, 8, 14, 0.40) 0%,
+    rgba(14, 8, 14, 0.28) 45%,
+    rgba(14, 8, 14, 0.08) 75%,
+    rgba(14, 8, 14, 0) 100%
+  );
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: none;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 30px 40px 10px;
+}
+
+.part-btn-item.in-use {
+  border-color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.25) !important;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.35) !important;
+}
+.part-btn-item.in-use .part-icon {
+  animation: pulseBeacon 1s infinite ease-in-out;
+}
+
+/* ------------------------------------------------------------------------------
+   3. Continuous Stream Teleprompter + Braille Space
+   ------------------------------------------------------------------------------ */
+.prompter-container {
+  width: 100%;
+  max-width: 1050px;
+  height: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.prompter-speaker-badge,
+.prompter-text-window,
+.braille-keynote-card,
+.prompter-container button,
+.prompter-container a {
+  pointer-events: auto;
+}
+
+.prompter-speaker-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 20px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 12px;
+  transition: var(--transition-smooth);
+}
+.prompter-speaker-badge.user {
+  background: rgba(99, 102, 241, 0.3);
+  color: #c7d2fe;
+  border: 1px solid rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.35);
+}
+.prompter-speaker-badge.assistant {
+  background: rgba(16, 185, 129, 0.3);
+  color: #a7f3d0;
+  border: 1px solid rgba(16, 185, 129, 0.5);
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
+}
+.prompter-speaker-badge.answered {
+  background: rgba(16, 185, 129, 0.16);
+  color: #a7f3d0;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+.prompter-speaker-badge.idle {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  border: 1px solid var(--border-subtle);
+}
+
+.badge-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulseBeacon 1.4s infinite ease-in-out;
+}
+@keyframes pulseBeacon {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.6); opacity: 0.4; }
+}
+
+/* The braille card is open, so the cells are what was asked for. The prompter keeps enough
+   to say which explanation they hold and gives the rest of the band back: at full height
+   over a long answer it pushed the page of cells behind the device on the stage. */
+.prompter-container.braille-open .prompter-text-window {
+  max-height: 72px;
+}
+
+.prompter-text-window {
+  width: 100%;
+  max-height: 190px;
+  overflow-y: auto;
+  /* A teleprompter that has scrolled slices its top line in half. Fading the first and
+     last few pixels reads as the text running past the edge, which is what it is doing. */
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 18px,
+                                      #000 calc(100% - 14px), transparent 100%);
+  mask-image: linear-gradient(180deg, transparent 0, #000 18px,
+                              #000 calc(100% - 14px), transparent 100%);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px;
+}
+
+.prompter-text {
+  font-size: 19px;
+  line-height: 1.55;
+  font-weight: 500;
+  color: #ffffff;
+  letter-spacing: -0.25px;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.9);
+  max-width: 920px;
+  transition: color 0.2s ease;
+}
+
+.prompter-text.empty {
+  font-size: 17px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.7);
+  text-shadow: none;
+}
+
+.prompter-card-slot:empty {
+  display: none;   /* an empty slot kept its margin and pushed the text up */
+}
+
+.prompter-card-slot {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+  animation: slideDownFade 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideDownFade {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Accessible Keynote Braille Card */
+/* ── The braille card ───────────────────────────────────────────────────────
+   It was white on black inside a black card, ringed in saturated purple and lit from
+   behind: 21:1, the highest contrast a screen can produce, on every element at once,
+   including the ones that carry no meaning. Hard to look at for a long time, and it made
+   the decoration shout as loudly as the cells.
+
+   Contrast is kept where it is information and spent nowhere else. The cells sit at 13:1,
+   still far above the 7:1 that is the strictest published threshold for body text; the
+   labels, the border and the glow give theirs back. The well is now lighter than the card
+   rather than darker, so the cells read as something raised rather than a hole. */
+
+:root {
+  --braille-card: #1a1426;
+  --braille-well: #241c33;
+  --braille-cells: #e8e3f2;
+  --braille-label: #b9b2c9;
+  --braille-muted: #a9a2ba;
+  --braille-accent: #d7c6f7;
+  --braille-accent-bed: rgba(124, 58, 237, 0.22);
+}
+
+.braille-keynote-card {
+  max-height: clamp(180px, 34vh, 340px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--braille-card) 96%, transparent);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 18px;
+  padding: 14px 22px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  gap: 10px;
+  width: 100%;
+  max-width: 720px;
+  text-align: left;
+}
+
+.braille-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.braille-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.braille-tag {
+  color: var(--braille-accent);
+  background: var(--braille-accent-bed);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 8px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+
+.braille-sub {
+  color: var(--braille-muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.braille-grade-toggles {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.braille-grade-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--braille-label);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+.braille-grade-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--braille-cells);
+}
+.braille-grade-btn.active {
+  /* Which grade is shown, said by a filled pill rather than a white flash. */
+  background: #cfc6e2;
+  color: var(--braille-card);
+  font-weight: 700;
+  border-color: #cfc6e2;
+}
+
+.braille-close-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--braille-label);
+  font-size: 12px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-left: 6px;
+  transition: var(--transition-smooth);
+}
+.braille-close-btn:hover {
+  background: rgba(239, 68, 68, 0.22);
+  border-color: rgba(239, 68, 68, 0.6);
+  color: var(--braille-cells);
+}
+
+.braille-sheet {
+  /* Lighter than the card, not darker: a surface the cells sit on, not a hole they
+     fall into, and the jump the eye has to make across the edge is smaller. */
+  background: var(--braille-well);
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+  padding: 10px 16px;
+  outline: none;
+  /* Bounded on purpose: a long answer in 28px cells pushed the prompter off the stage.
+     The cells scroll inside their own box instead, and the keyboard reaches them since
+     the viewport is focusable. */
+  max-height: clamp(96px, 22vh, 220px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.braille-sheet::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.braille-sheet::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.45);
+  border-radius: 3px;
+}
+.braille-sheet:focus {
+  border-color: #a855f7;
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.5);
+}
+
+/* A page, not a paragraph. The lines were broken by the embosser at forty cells, so they
+   must not be broken again by the width of a browser window: the sheet scrolls sideways
+   if it has to, the way paper does not reflow. */
+.braille-page {
+  font-size: clamp(14px, 1.9vh, 22px);
+  line-height: 1.6;
+  color: var(--braille-cells);
+  letter-spacing: 2px;
+  font-family: 'Segoe UI Symbol', 'Apple Symbols', 'Symbola', monospace;
+  white-space: pre;
+}
+
+/* Grade 1 has no page layout of its own, so it wraps rather than pretending to be a page. */
+.braille-page.as-cells {
+  white-space: pre-wrap;
+  word-break: break-word;
+  letter-spacing: 5px;
+  font-size: clamp(19px, 2.2vh, 28px);
+}
+
+.braille-page-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.braille-page-label {
+  color: var(--braille-muted);
+  font-size: 11px;
+  min-width: 96px;
+}
+
+.braille-page-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--braille-label);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+.braille-page-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--braille-cells);
+}
+.braille-page-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.braille-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+}
+
+.braille-plain-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--braille-label);
+  min-width: 0;
+}
+.plain-text-preview {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 440px;
+  font-style: italic;
+}
+
+.braille-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-copy-braille,
+.btn-download-brf {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: var(--braille-label);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+.btn-copy-braille:hover,
+.btn-download-brf:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.32);
+  color: var(--braille-cells);
+}
+
+/* ------------------------------------------------------------------------------
+   4. Base 3D Tactile Equipment Stage
+   ------------------------------------------------------------------------------ */
+.equipment-3d-stage {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 52%;
+  z-index: 3;
+  pointer-events: auto;
+}
+.equipment-3d-stage canvas {
+  width: 100% !important;
+  height: 100% !important;
+  outline: none;
+}
+.equipment-3d-stage.cursor-hand canvas {
+  cursor: grab !important;
+}
+.equipment-3d-stage.cursor-hand canvas:active {
+  cursor: grabbing !important;
+}
+
+/* Tactile Click Shockwave Ripple Halo */
+.tactile-shockwave-halo {
+  position: fixed;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 9999;
+  border: 3px solid var(--ripple-color, #ffffff);
+  box-shadow: 0 0 28px var(--ripple-color, #ffffff), inset 0 0 18px var(--ripple-color, #ffffff);
+  animation: shockwaveExpand 0.65s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+}
+
+@keyframes shockwaveExpand {
+  0% {
+    width: 16px;
+    height: 16px;
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    width: 150px;
+    height: 150px;
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.3);
+  }
+}
+
+/* Floating Bottom Camera Views Bar inside Capsule */
+.camera-views-bar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(12, 8, 20, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: 5px 14px;
+  border-radius: 9999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.28);
+  z-index: 20;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+}
+
+.view-shot-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+.view-shot-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+}
+.view-shot-btn.active {
+  background: #ffffff;
+  color: #090d16;
+  font-weight: 700;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* ------------------------------------------------------------------------------
+   5. Lateral Menus (Left Parts Drawer & Right Specs Card - Active by default)
+   ------------------------------------------------------------------------------ */
+
+/* Left Hardware Parts Menu Drawer (Anchored at 3D Equipment Level) */
+.hardware-parts-drawer {
+  position: absolute;
+  top: auto;
+  bottom: 36px;
+  left: 4.5vw;
+  width: 250px;
+  max-height: 400px;
+  background: rgba(14, 8, 22, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  border-radius: 20px;
+  padding: 16px;
+  z-index: 45;
+  box-shadow: 0 18px 45px -10px rgba(0, 0, 0, 0.75);
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+}
+.hardware-parts-drawer.collapsed {
+  transform: translateX(-340px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.drawer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+.drawer-title {
+  /* A heading, for the structure a screen reader navigates by, with the size it had. */
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #ffffff;
+}
+
+.drawer-subtitle {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.parts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.part-btn-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(22, 14, 34, 0.75);
+  border: 1.5px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+.part-btn-item:hover {
+  background: rgba(35, 22, 54, 0.95);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+.part-btn-item.active {
+  background: rgba(45, 28, 70, 0.98);
+  border-color: #ffffff;
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.35);
+}
+
+.part-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  flex-shrink: 0;
+  font-size: 13px;
+  transition: var(--transition-smooth);
+}
+
+.part-btn-item[data-part="btn_ptt"] .part-icon {
+  background: #172554;
+  border: 1.5px solid #3b82f6;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(37, 99, 235, 0.4);
+}
+.part-btn-item[data-part="btn_notebook"] .part-icon {
+  background: #78350f;
+  border: 1.5px solid #f59e0b;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+}
+.part-btn-item[data-part="btn_summary"] .part-icon {
+  background: #064e3b;
+  border: 1.5px solid #10b981;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+}
+.part-btn-item[data-part="btn_braille"] .part-icon {
+  background: #3b0764;
+  border: 1.5px solid #a855f7;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.4);
+}
+.part-btn-item[data-part="port_usbc"] .part-icon {
+  background: #0c4a6e;
+  border: 1.5px solid #38bdf8;
+  color: #ffffff;
+}
+.part-btn-item[data-part="port_jack"] .part-icon {
+  background: #334155;
+  border: 1.5px solid #94a3b8;
+  color: #ffffff;
+}
+.part-btn-item[data-part="port_braille"] .part-icon {
+  background: #78350f;
+  border: 1.5px solid #f59e0b;
+  color: #ffffff;
+}
+.part-btn-item[data-part="volume_wheel"] .part-icon {
+  background: #1e293b;
+  border: 1.5px solid #64748b;
+  color: #ffffff;
+}
+
+.part-btn-item.in-use {
+  border-color: #ef4444 !important;
+  background: rgba(153, 27, 27, 0.45) !important;
+  box-shadow: 0 0 18px rgba(239, 68, 68, 0.6) !important;
+}
+.part-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.part-name {
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.part-desc-short {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.7);
+  font-family: var(--font-mono);
+}
+
+/* Right Inspector Card (Anchored at 3D Equipment Level) */
+.hardware-inspector-card {
+  position: absolute;
+  top: auto;
+  bottom: 36px;
+  right: 4.5vw;
+  width: 280px;
+  max-height: 400px;
+  overflow-y: auto;
+  background: rgba(14, 8, 22, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  border-radius: 20px;
+  padding: 18px;
+  z-index: 45;
+  box-shadow: 0 18px 45px -10px rgba(0, 0, 0, 0.75);
+  transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+}
+.hardware-inspector-card.collapsed {
+  transform: translateX(360px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.inspector-badge-row {
+  margin-bottom: 10px;
+}
+.inspector-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  padding: 3px 10px;
+  border-radius: 8px;
+  letter-spacing: 0.4px;
+}
+
+.inspector-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 6px;
+  line-height: 1.3;
+}
+
+.inspector-code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #fde68a;
+  margin-bottom: 12px;
+  padding: 4px 8px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 6px;
+  border-left: 3px solid var(--accent-gold);
+  word-break: break-all;
+}
+
+.inspector-description {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* Stage Helper Hint */
+.stage-helper-hint {
+  position: absolute;
+  bottom: 14px;
+  left: 4.2vw;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+
+/* ── Accessibility ──────────────────────────────────────────────────────────
+   This interface is for pupils who may not see it at all. Two things follow. */
+
+/* Announced, never shown: the prompter's text once the turn is whole. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* A visible focus ring everywhere a keyboard can land. The device is tactile, the page
+   is not: without this, nobody navigating by keyboard knows where they are. */
+button:focus-visible,
+[tabindex]:focus-visible,
+select:focus-visible {
+  outline: 3px solid #a855f7;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* The stage floats, pulses and glows. For anyone who asked their system to stop that,
+   it stops: the interface keeps every function and loses only the motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+/* ── A window narrower than the stage ───────────────────────────────────────
+   There was no rule for this at all: below about 1100 px the two side panels sat on top
+   of the device they describe, and the navbar's contents ran into each other. The panels
+   are a convenience, the capsule is the presentation, so the panels give way first. */
+
+@media (max-width: 1180px) {
+  .hardware-parts-drawer,
+  .hardware-inspector-card {
+    width: 210px;
+    max-height: 300px;
+  }
+  .keynote-navbar {
+    gap: 10px;
+  }
+  .stage-helper-hint {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  /* Both panels off the stage. The parts list is the keyboard path to the device, so it
+     is reachable again with the one button that brought it back: the panels toggle. */
+  .hardware-parts-drawer,
+  .hardware-inspector-card {
+    display: none;
+  }
+  .nav-center {
+    display: none;
+  }
+  .student-selector label {
+    display: none;
+  }
+}
+
+/* A short window: the prompter and the device are both in the capsule, and the prompter
+   is what the words are in, so the braille card gives its room back first. */
+@media (max-height: 680px) {
+  .keynote-top-overlay {
+    max-height: 60%;
+  }
+  .braille-sheet {
+    max-height: clamp(60px, 14vh, 120px);
+  }
+  .camera-views-bar {
+    display: none;
+  }
+}

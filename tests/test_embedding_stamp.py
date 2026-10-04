@@ -9,12 +9,16 @@ cloud pipeline sharing the client's config are not ported with the pipeline.
 """
 
 import json
+import pathlib
+import re
 
 import pytest
 
 from apu import config
 from apu.storage import lance_driver
 from tests.conftest import DIM, V_A
+
+REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 
 
 def _row(rid, vector, content="c"):
@@ -39,7 +43,13 @@ async def test_a_wider_registry_is_refused_not_searched(akili_paths, monkeypatch
     msg = str(exc.value)
     assert "16-dimension" in msg
     assert "8" in msg
-    assert "migrate_embeddings.py" in msg
+    # It says what to do, with something that is in this repository. It used to send the
+    # reader to a re-embedding script that existed only in the code base this was ported
+    # from, which is an instruction with no way to follow it.
+    assert "re-download the course registry" in msg
+    assert "student page" in msg
+    for script in re.findall(r"scripts/[\w.]+", msg):
+        assert (REPO_ROOT / script).exists(), f"the message names {script}, which is not here"
 
 
 async def test_the_refusal_names_the_configured_model(akili_paths, monkeypatch):

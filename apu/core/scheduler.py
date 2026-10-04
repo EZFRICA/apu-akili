@@ -28,7 +28,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Dict
+from typing import Any
 
 from apu.logger import get_logger
 
@@ -61,7 +61,7 @@ class DeferredWriteScheduler:
         self.max_delay_seconds = max_delay_seconds
         self._sleep = sleep
         self._name = name
-        self._queue: "queue.Queue[tuple[str, dict]]" = queue.Queue()
+        self._queue: queue.Queue[tuple[str, dict]] = queue.Queue()
         self._handlers: dict[str, Callable[[dict], None]] = {}
         self._dead_letters: list[DeadLetter] = []
         self._thread: threading.Thread | None = None
@@ -154,10 +154,10 @@ class LocalScheduler:
         self.queue = asyncio.Queue()
         self._is_running = False
 
-    async def push(self, task_type: str, payload: Dict[str, Any], priority: int = 1):
+    async def push(self, task_type: str, payload: dict[str, Any], priority: int = 1):
         """Adds a task to the queue."""
         await self.queue.put((priority, task_type, payload))
-        logger.debug(f"Scheduler: Task added {task_type}")
+        logger.debug("Scheduler: task added %s", task_type)
 
     async def start(self):
         """Starts the scheduler loop."""
@@ -171,17 +171,17 @@ class LocalScheduler:
             try:
                 await self._handle_task(task_type, payload)
             except Exception as e:
-                logger.error(f"Scheduler error on {task_type}: {e}")
+                logger.error("Scheduler error on %s: %s", task_type, e)
             finally:
                 self.queue.task_done()
 
-    async def _handle_task(self, task_type: str, payload: Dict[str, Any]):
+    async def _handle_task(self, task_type: str, payload: dict[str, Any]):
         """Executes the task logic."""
         if task_type == "GC_OPTIMIZE":
             # Local LanceDB cleanup/optimization could be implemented here if needed
-            logger.debug(f"GC: Optimization for block {payload.get('block_id')}")
+            logger.debug("GC: optimisation for block %s", payload.get("block_id"))
         else:
-            logger.warning(f"Unknown task: {task_type}")
+            logger.warning("Unknown task: %s", task_type)
 
 # Global Instance
 scheduler = LocalScheduler()

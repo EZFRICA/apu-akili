@@ -24,7 +24,7 @@ live = st.columns(2)
 if live[0].button("Test the tutor model", width="stretch"):
     started = time.monotonic()
     try:
-        reply = seed.live_check_nemotron()
+        reply = seed.live_check_tutor_model()
         live[0].success(f"Replied “{reply}” in {time.monotonic() - started:.1f} s")
     except Exception as error:   # a connectivity check: the failure IS the result
         live[0].error(f"Failed: {error}")

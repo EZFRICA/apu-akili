@@ -309,7 +309,7 @@ def upload_to_gcs(bucket_name: str) -> None:
 
 async def main(upload: bool = False):
     # Load curriculum
-    with open(CURRICULUM_PATH, "r", encoding="utf-8") as f:
+    with open(CURRICULUM_PATH, encoding="utf-8") as f:
         curriculum = yaml.safe_load(f)
 
     classes = curriculum.get("classes", {})

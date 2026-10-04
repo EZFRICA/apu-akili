@@ -34,7 +34,6 @@ import json
 import os
 import uuid
 from datetime import datetime
-from typing import Dict, List
 
 from apu import config
 from apu.core.block_proposal import validate as validate_proposal
@@ -47,7 +46,7 @@ from apu.storage import lance_driver
 logger = get_logger(__name__)
 
 # ── Dynamic Isolation Locks ──────────────────────────────────────────────────
-_dll_locks: Dict[str, asyncio.Lock] = {}
+_dll_locks: dict[str, asyncio.Lock] = {}
 
 def get_dll_lock(agent_id: str) -> asyncio.Lock:
     """Get or create an asyncio.Lock for a specific agent."""
@@ -226,18 +225,12 @@ def save_dll(dll: dict) -> None:
             fcntl.flock(lock_file, fcntl.LOCK_UN)
 
 
-def get_head_threshold(dll: dict) -> float:
-    """Return the adaptive certainty threshold based on the HEAD node type."""
-    head_node = dll["nodes"][dll["head_id"]]
-    return CERTAINTY_THRESHOLDS.get(head_node["type"], 0.55)
-
-
 async def search_memory(
-    query_vector: List[float],
+    query_vector: list[float],
     class_level: str,
     subject: str,
     dll: dict | None = None,
-) -> List[Dict]:
+) -> list[dict]:
     """
     Bidirectional Metadata Jump (BMJ) — powered by LanceDB vector search.
 
@@ -299,13 +292,6 @@ def record_access(block_id: str, dll: dict) -> None:
         return
     node["last_accessed"] = datetime.now().isoformat()
     node["access_count"] = int(node.get("access_count") or 0) + 1
-
-
-def toggle_block(block_id: str, state: bool, dll: dict) -> dict:
-    """Enable or disable a block."""
-    if block_id in dll["nodes"]:
-        dll["nodes"][block_id]["active"] = state
-    return dll
 
 
 async def update_node_content(block_id: str, content: str, dll: dict) -> dict:
@@ -500,7 +486,7 @@ async def delete_block_stitching(block_id: str, dll: dict) -> dict:
         dll["dynamic_block_count"] = max(0, dll["dynamic_block_count"] - 1)
 
         save_dll(dll)
-        logger.info(f"Block '{block_id}' deleted locally.")
+        logger.info("Block '%s' deleted locally.", block_id)
 
     return dll
 
@@ -531,7 +517,7 @@ async def page_out_block(block_id: str, dll: dict) -> dict:
     dll["dynamic_block_count"] = max(0, dll["dynamic_block_count"] - 1)
 
     save_dll(dll)
-    logger.info(f"Block '{block_id}' PAGED OUT (Moved to local storage).")
+    logger.info("Block '%s' paged out to local storage.", block_id)
     return dll
 
 def _refuse_zero_vector(block_id: str):
@@ -610,31 +596,6 @@ async def create_dynamic_block(
     dll = insert_node_by_type(block_type, new_node, dll)
     dll["dynamic_block_count"] += 1
     save_dll(dll)
-
-    return dll
-
-async def update_block_content(
-    block_id: str,
-    new_content: str,
-    new_keywords: list[str],
-    dll: dict,
-    vector: list[float] | None = None
-) -> dict:
-    """
-    Updates a block's content locally.
-
-    `new_keywords` and `vector` are accepted and ignored, as in Akili:
-    update_node_content re-embeds the content itself and never touches keywords.
-    """
-    nodes = dll["nodes"]
-    if block_id not in nodes:
-        raise ValueError(f"Block '{block_id}' not found.")
-
-    agent_id = dll.get("agent_id")
-
-    async with get_dll_lock(agent_id):
-        # Use centralized update_node_content to persist to both DLL and LanceDB
-        dll = await update_node_content(block_id, new_content, dll)
 
     return dll
 

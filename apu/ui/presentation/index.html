@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>APU Akili · Keynote Product Presentation</title>
+  <meta name="description" content="Product keynote stage for Pocket Akili, the tactile voice companion.">
+  
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2064%2064%22%3E%3Crect%20width%3D%2264%22%20height%3D%2264%22%20rx%3D%2214%22%20fill%3D%22%23D54D48%22%2F%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2232%22%20r%3D%2222%22%20fill%3D%22none%22%20stroke%3D%22%23ffffff%22%20stroke-width%3D%222.5%22%2F%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2232%22%20r%3D%2214%22%20fill%3D%22none%22%20stroke%3D%22%23D58F48%22%20stroke-width%3D%222%22%2F%3E%3Ccircle%20cx%3D%2232%22%20cy%3D%2232%22%20r%3D%227%22%20fill%3D%22%23D54885%22%2F%3E%3C%2Fsvg%3E">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <!-- 1. Top Keynote Navigation Bar -->
+  <header class="keynote-navbar">
+    <div class="nav-brand">
+      <div class="brand-badge">APU</div>
+      <div class="brand-title">
+        Akili
+        <span class="brand-edition">Keynote Stage</span>
+      </div>
+    </div>
+
+    <!-- Model Switcher -->
+    <nav class="nav-center" aria-label="Speech model">
+      <button class="model-pill-btn active" data-model="gemini-3.5-transcribe-live" aria-pressed="true">Gemini Transcribe</button>
+      <button class="model-pill-btn" data-model="eleven_english_sts_v2" aria-pressed="false">ElevenLabs STS</button>
+      <button class="model-pill-btn" data-model="gemini-3.8-live" aria-pressed="false">Gemini Live</button>
+    </nav>
+
+    <!-- Right Controls -->
+    <div class="nav-actions">
+      <!-- Pupil Selector -->
+      <div class="student-selector">
+        <label for="student-select">Pupil:</label>
+        <select id="student-select">
+          <option value="eleve-aya|lycee-cocody:3eA" selected>Aya (3eA · Cocody)</option>
+          <option value="eleve-koffi|lycee-cocody:3eA">Koffi (3eA · Cocody)</option>
+          <option value="eleve-fatou|lycee-cocody:3eA">Fatou (3eA · Cocody)</option>
+        </select>
+      </div>
+
+      <!-- Live Connection Pill -->
+      <div id="status-pill" class="status-pill" role="status" aria-live="polite">
+        <span class="status-dot"></span>
+        <span id="status-text">Connecting…</span>
+      </div>
+
+      <!-- Mic & Camera Utility Toggles -->
+      <button id="toggle-mic-btn" class="icon-btn" title="Activate / Test Microphone" aria-label="Toggle microphone" aria-pressed="false">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+      </button>
+
+      <button id="toggle-camera-btn" class="icon-btn" title="Toggle Presenter Camera" aria-label="Toggle camera" aria-pressed="false">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+      </button>
+
+      <button id="toggle-mirror-btn" class="icon-btn" title="Toggle Camera Mirror" aria-label="Toggle camera mirror" aria-pressed="false">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+      </button>
+
+      <button id="toggle-drawer-btn" class="icon-btn" title="Toggle Lateral Menus" aria-label="Toggle lateral menus" aria-pressed="false">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>
+      </button>
+
+      <button id="toggle-fullscreen-btn" class="icon-btn" title="Toggle Fullscreen" aria-label="Toggle fullscreen">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- 2. Central 94% Screen Rounded Capsule Stage -->
+  <main class="keynote-center-viewport">
+    <div class="elevenlabs-capsule-frame" id="capsule-frame">
+      
+      <!-- Video Layer: Live Camera Stream with 40% Opacity Filter -->
+      <video id="camera-feed" class="camera-video-layer" autoplay playsinline muted></video>
+
+      <!-- Translucent Overlay at the Top: continuous flow prompter + braille space -->
+      <div class="keynote-top-overlay">
+        <div id="prompter-stage-container" class="prompter-container">
+          <div class="prompter-speaker-badge idle">
+            <span>Waiting for voice…</span>
+          </div>
+          <div class="prompter-text-window">
+            <div class="prompter-text empty">
+              Speak or press a tactile button on Pocket Akili below…
+            </div>
+          </div>
+          <div class="prompter-card-slot"></div>
+
+          <!-- What a screen reader hears. The visible prompter streams token by token,
+               which would be read out word by word; this is written once per turn, when
+               the sentence is whole, which is what a pupil who cannot see it needs. -->
+          <p id="prompter-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+        </div>
+      </div>
+
+      <!-- Base 3D Tactile Equipment (Pocket Akili) -->
+      <div id="equipment-3d-stage" class="equipment-3d-stage" aria-hidden="true"
+           title="Pocket Akili 3D tactile companion"></div>
+      
+      <!-- Floating Bottom Camera Views Bar -->
+      <nav class="camera-views-bar" aria-label="Camera angles">
+        <button class="view-shot-btn active" data-shot="stage" aria-pressed="true">Pedestal Stage</button>
+        <button class="view-shot-btn" data-shot="controls" aria-pressed="false">Tactile Deck</button>
+        <button class="view-shot-btn" data-shot="ports" aria-pressed="false">Bottom Ports</button>
+        <button class="view-shot-btn" data-shot="inhand" aria-pressed="false">Handheld</button>
+      </nav>
+    </div>
+  </main>
+
+  <!-- 3. Left Hardware Parts Navigation Drawer (Active by default) -->
+  <aside id="hardware-parts-drawer" class="hardware-parts-drawer"
+         aria-labelledby="drawer-title">
+    <div class="drawer-header">
+      <h2 class="drawer-title" id="drawer-title">Tactile Components</h2>
+      <span class="drawer-subtitle">Pocket Akili</span>
+    </div>
+    <div id="parts-list" class="parts-list" role="group"
+         aria-label="Press a key on Pocket Akili"></div>
+  </aside>
+
+  <!-- 4. Right Hardware Inspector Card (Voice Input · 16kHz PCM - without Talk Speech action button) -->
+  <aside id="hardware-inspector-card" class="hardware-inspector-card"
+         aria-labelledby="inspector-title">
+    <div class="inspector-badge-row">
+      <span id="inspector-badge" class="inspector-badge">Voice Input · 16kHz PCM</span>
+    </div>
+    <h2 id="inspector-title" class="inspector-title">PTT / Microphone Button (Push-to-Talk)</h2>
+    <div id="inspector-code" class="inspector-code">apu/ui/live/pipeline.py ➔ process_turn()</div>
+    <p id="inspector-desc" class="inspector-description">
+      Oversized central button with high-relief concentric rings and embossed microphone icon. Pressing it streams 16kHz PCM audio over WebSocket (/ws/eleven_english_sts_v2 or /ws/gemini-3.5-transcribe-live) for real-time speech-to-text, topical guardrail verification, and Socratic tutoring.
+    </p>
+  </aside>
+
+  <!-- 5. Stage Proximity Helper Hint -->
+  <div class="stage-helper-hint" aria-hidden="true">
+    <span>Click a key on Pocket Akili, or use the component list. M for the microphone, Escape to close braille.</span>
+  </div>
+
+  <script type="module" src="presentation.js"></script>
+</body>
+</html>

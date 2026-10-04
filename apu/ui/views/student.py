@@ -15,12 +15,18 @@ from apu.demo.seed import loaded_courses  # noqa: E402
 from apu.guardrails.session import sessions as guard_sessions  # noqa: E402
 from apu.mmu import cache_l1  # noqa: E402
 from apu.mmu import dll as mmu  # noqa: E402
-from apu.modality.braille import _liblouis  # noqa: E402
 from apu.modality import voice  # noqa: E402
+from apu.modality.braille import _liblouis  # noqa: E402
 from apu.modality.braille.sheet import braille_sheet  # noqa: E402
 from apu.modality.braille.translator import BrailleGrade  # noqa: E402
 from apu.notebook import service as notebook  # noqa: E402
-from apu.notebook.store import KIND_DESCRIPTIONS, KIND_LABELS, EntryKind, EntryOrigin, NotebookStore  # noqa: E402
+from apu.notebook.store import (  # noqa: E402
+    KIND_DESCRIPTIONS,
+    KIND_LABELS,
+    EntryKind,
+    EntryOrigin,
+    NotebookStore,
+)
 from apu.storage import lance_driver  # noqa: E402
 from apu.sync import sync_manager  # noqa: E402
 from apu.ui import common  # noqa: E402
@@ -387,7 +393,7 @@ if prompt:
     previous_answer = next((m["answer"] for m in reversed(st.session_state.chat) if m.get("answer")), "")
     count_before = session.off_topic_count
     with st.spinner("Akili is thinking (guard, search if needed, answer, memory)…"):
-        # The turn itself lives in apu/ui/turn.py, shared with the Chainlit interface.
+        # The turn itself lives in apu/ui/turn.py, outside the page that shows it.
         result = common.run(turn_service.run_turn(
             prompt,
             session_id=session_id,

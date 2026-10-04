@@ -4,7 +4,7 @@ The demo interface, run headless with Streamlit's AppTest.
 Target: apu/ui/app.py, apu/ui/views/*.py, apu/ui/common.py
 
 AppTest executes each view in-process, so the storage redirection, the stub embedder, the
-scripted topical guard, the fake Nebius client and the fake registry all apply to it.
+scripted topical guard, the fake model client and the fake registry all apply to it.
 """
 
 import pathlib
@@ -328,6 +328,11 @@ def test_the_page_ships_the_accessibility_patch():
     observer_target = ACCESSIBILITY_SCRIPT.split("new MutationObserver(")[1].split(")")[0]
     assert observer_target == "applyLandmarks", observer_target
     assert "apu-skip" not in ACCESSIBILITY_SCRIPT.split("function applyLandmarks")[1].split("function install")[0]
+    # A rerun destroys the component's realm and leaves its listeners dead but present. Each
+    # run removes the previous keyboard listener and skip link before adding its own; a guard
+    # that skipped registration instead left Alt+Q silently dead after the first rerun.
+    assert "doc.removeEventListener('keydown', win.__apuKeydown)" in ACCESSIBILITY_SCRIPT
+    assert "previous.remove()" in ACCESSIBILITY_SCRIPT
 
     app = (_pathlib.Path(__file__).resolve().parent.parent / "apu" / "ui" / "app.py").read_text()
     assert "inject_accessibility()" in app, "the patch must run on every page"
@@ -336,7 +341,7 @@ def test_the_page_ships_the_accessibility_patch():
     assert CHAT_LOG_ANCHOR.startswith("<div id=\"apu-chat-log\"")
 
 
-def test_nemotron_latex_delimiters_become_streamlit_math():
+def test_model_latex_delimiters_become_streamlit_math():
     from apu.ui.common import math_for_streamlit
 
     assert math_for_streamlit(r"Let us add \( \frac{1}{4} + \frac{1}{6} \).") == r"Let us add $\frac{1}{4} + \frac{1}{6}$."

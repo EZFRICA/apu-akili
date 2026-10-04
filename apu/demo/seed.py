@@ -225,9 +225,8 @@ class Check:
 
 
 def demo_checks() -> list[Check]:
-    from apu.modality.braille import _liblouis
-
     from apu.inference.llm import PROVIDERS
+    from apu.modality.braille import _liblouis
 
     # One line per provider a role actually points at, so a missing key names the role that
     # will fail rather than a vendor the reader has to map back to one.
@@ -288,7 +287,8 @@ def loaded_courses() -> list[str]:
     return sorted(f"{c}/{s}" for c, s in pairs.itertuples(index=False))
 
 
-def live_check_nemotron() -> str:
+def live_check_tutor_model() -> str:
+    """One round trip to whichever model the tutor role is configured to use."""
     from apu.inference import llm
     reply = llm.call_main_model(
         [{"role": "user", "content": "Reply with just: OK"}], temperature=0.0

@@ -4,7 +4,7 @@ The topical rail (NeMo Guardrails), per-session counting, escalation, and the se
 Target: apu/guardrails/, apu/tools/web_search.py
 
 Runs the real NeMo Guardrails runtime and the shared Colang config, with a scripted
-classifier model in place of Nemotron.
+classifier model in place of a real one.
 """
 
 import threading
@@ -15,7 +15,12 @@ import pytest
 from apu import config
 from apu.core.scheduler import DeferredWriteScheduler
 from apu.escalation.jobs import register_escalation_jobs
-from apu.guardrails.actions import FIRM_REPLY, GENTLE_REPLY
+from apu.guardrails.actions import (
+    FIRM_AGAIN_REPLY,
+    FIRM_REPLY,
+    GENTLE_REPLIES,
+    GENTLE_REPLY,
+)
 from apu.guardrails.classifier import build_classifier_prompt, parse_verdict
 from apu.guardrails.guard import GuardUnavailable, TopicalGuard
 from apu.guardrails.policy import ClassPolicy, ClassPolicyRegistry
@@ -121,7 +126,11 @@ async def test_crossing_the_threshold_turns_firmer_and_persists_one_event(env):
     second = await env.guard.check(session.session_id, off_topic("second slip"))
     third = await env.guard.check(session.session_id, off_topic("third slip"))
 
-    assert second.reply == FIRM_REPLY and third.reply == FIRM_REPLY
+    # The crossing is firm and says an adult will see it; the next one is shorter, because
+    # a pupil who has just been told that does not need the whole sentence again.
+    assert second.reply == FIRM_REPLY
+    assert "your teacher will see it" in second.reply
+    assert third.reply == FIRM_AGAIN_REPLY
     [stored] = env.events()
     assert stored.student_id == "eleve-7" and stored.class_id == CLASS_ID
     assert stored.session_id == session.session_id
@@ -394,3 +403,91 @@ async def test_a_tavily_error_payload_is_not_treated_as_no_results(env):
     search = TavilySearch(sessions=env.sessions, tool_factory=lambda **kw: ErrorTool())
     with pytest.raises(WebSearchUnavailable, match="invalid api key"):
         await search.search("fractions", validated_turn=decision.validated_turn)
+
+
+async def test_a_refusal_answers_the_attempt_it_is_answering(tmp_path):
+    """
+    It used to be the same two sentences every time, which reads as a wall rather than as a
+    conversation and was written up as such (docs/security.md). The session already counts
+    the attempts; the wording follows that count.
+    """
+    wide = Env(tmp_path, threshold=4)
+    session = wide.open(student="eleve-ladder")
+    heard = []
+    for _ in range(5):
+        heard.append((await wide.guard.check(session.session_id, off_topic())).reply)
+
+    for earlier, later in zip(heard, heard[1:]):
+        assert earlier != later, f"a pupil heard the same words twice running: {earlier!r}"
+    assert len(set(heard)) == 5
+    assert heard[:3] == list(GENTLE_REPLIES[:3])
+    assert heard[3] == FIRM_REPLY
+    assert heard[4] == FIRM_AGAIN_REPLY
+
+
+def test_the_ladder_fits_any_threshold_a_class_sets():
+    """A class can set the threshold to 2, or to 9. Neither may fall off the list."""
+    from apu.guardrails.actions import off_topic_reply
+
+    # 1 is the floor the policy registry enforces, so the ladder never sees 0 or less.
+    with pytest.raises(ValueError, match="at least 1"):
+        policy(0)
+
+    for threshold in range(1, 10):
+        for attempt in range(1, threshold + 4):
+            reply = off_topic_reply(attempt, threshold)
+            assert reply and isinstance(reply, str)
+            if attempt < threshold:
+                assert reply in GENTLE_REPLIES
+            elif attempt == threshold:
+                assert reply == FIRM_REPLY
+            else:
+                assert reply == FIRM_AGAIN_REPLY
+
+
+def test_no_refusal_quotes_the_pupil_back_at_themselves():
+    """A refusal that repeats the question is a refusal that republishes it."""
+    import inspect
+
+    from apu.guardrails import actions
+
+    source = inspect.getsource(actions.off_topic_reply)
+    assert "user_message" not in source and "format(" not in source and "%s" not in source
+    for reply in (*GENTLE_REPLIES, FIRM_REPLY, FIRM_AGAIN_REPLY):
+        assert "{" not in reply, "nothing is interpolated into what a pupil is shown"
+
+
+def test_every_sentence_a_pupil_is_shown_speaks_the_same_way():
+    """
+    These are read aloud to children, often by the same voice in the same session. A mix of
+    "I couldn't" and "I could not", or a status page sentence among the tutor's own, is the
+    seam showing. The rule is the project's: one language, and the uncontracted form that
+    the rest of these sentences already use.
+    """
+    import ast
+    import pathlib
+    import re
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    offenders = []
+    for module in sorted(root.glob("apu/**/*.py")):
+        if "__pycache__" in str(module):
+            continue
+        source = module.read_text(encoding="utf-8")
+        for node in ast.walk(ast.parse(source)):
+            if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+                continue
+            text = node.value.strip()
+            if len(text) < 35 or not text.endswith((".", "!", "?")) or not text[0].isupper():
+                continue
+            if not re.search(r"\b(you|your|me|I|we|us|let)\b", text):
+                continue
+            where = f"{module.relative_to(root)}: {text[:50]}"
+            if re.search(r"\b(I|you|we|it|that|there)'(m|s|re|ve|ll|d)\b|n't\b", text):
+                offenders.append(("a contraction, where the rest do not: " + where))
+            if re.search(r"\b(temporary issue|invalid|unable to process|an error occurred)\b",
+                         text, re.IGNORECASE):
+                offenders.append("a status page talking to a child: " + where)
+            if re.search(r"[à-ÿ]", text) and "braille" not in text.lower():
+                offenders.append("not English: " + where)
+    assert not offenders, "\n".join(offenders)

@@ -27,7 +27,7 @@ awaited before the turn returns (see apu.core.scheduler for why that is still op
 import asyncio
 import json
 from dataclasses import dataclass, field
-from typing import Annotated, List, TypedDict
+from typing import Annotated, TypedDict
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, StateGraph
@@ -63,7 +63,7 @@ FINAL_ANSWER_NUDGE = (
     "Now answer the student directly, using the information above. Do not search again."
 )
 EMPTY_ANSWER_FALLBACK = (
-    "I couldn't put an answer together this time. Could you ask your question again, "
+    "I could not put an answer together this time. Could you ask your question again, "
     "perhaps in other words?"
 )
 
@@ -124,7 +124,7 @@ def _to_str(content) -> str:
     return str(content)
 
 
-def _to_openai_messages(messages: List[BaseMessage]) -> List[dict]:
+def _to_openai_messages(messages: list[BaseMessage]) -> list[dict]:
     converted = []
     for message in messages:
         role = _ROLE_BY_MESSAGE_TYPE.get(message.type)
@@ -158,11 +158,11 @@ class _TurnTools:
     previous_answer: str = ""
     class_level: str = ""
     subject: str = ""
-    sources: List[Source] = field(default_factory=list)
-    searches: List[str] = field(default_factory=list)
-    refused_searches: List[str] = field(default_factory=list)
-    tool_problems: List[str] = field(default_factory=list)
-    notebook_saves: List[dict] = field(default_factory=list)
+    sources: list[Source] = field(default_factory=list)
+    searches: list[str] = field(default_factory=list)
+    refused_searches: list[str] = field(default_factory=list)
+    tool_problems: list[str] = field(default_factory=list)
+    notebook_saves: list[dict] = field(default_factory=list)
 
 
 def _tool_arguments(call) -> dict:
@@ -240,15 +240,15 @@ async def _run_notebook_save(call, tools: _TurnTools) -> str:
 @dataclass
 class AnswerResult:
     text: str
-    sources: List[Source] = field(default_factory=list)
-    searches: List[str] = field(default_factory=list)        # queries sent to web search
-    tool_problems: List[str] = field(default_factory=list)
-    answer_problems: List[str] = field(default_factory=list)
-    notebook_saves: List[dict] = field(default_factory=list)
-    refused_searches: List[str] = field(default_factory=list)
+    sources: list[Source] = field(default_factory=list)
+    searches: list[str] = field(default_factory=list)        # queries sent to web search
+    tool_problems: list[str] = field(default_factory=list)
+    answer_problems: list[str] = field(default_factory=list)
+    notebook_saves: list[dict] = field(default_factory=list)
+    refused_searches: list[str] = field(default_factory=list)
 
 
-async def _answer_or_retry(conversation: List[dict], answer: str) -> tuple[str, List[str]]:
+async def _answer_or_retry(conversation: list[dict], answer: str) -> tuple[str, list[str]]:
     """Return the answer, retrying once with an explicit nudge if the model gave no text."""
     if answer.strip():
         return answer, []
@@ -264,7 +264,7 @@ async def _answer_or_retry(conversation: List[dict], answer: str) -> tuple[str, 
     return EMPTY_ANSWER_FALLBACK, ["the tutor model returned an empty answer twice"]
 
 
-async def _answer(conversation: List[dict], tools: _TurnTools | None) -> AnswerResult:
+async def _answer(conversation: list[dict], tools: _TurnTools | None) -> AnswerResult:
     """Main-model call, with tool rounds (web search, notebook) when the turn was validated."""
     for tool_round in range(MAX_SEARCH_ROUNDS + 1):
         offer_tools = tools is not None and tool_round < MAX_SEARCH_ROUNDS
@@ -314,14 +314,14 @@ def _interaction_mode(state) -> InteractionMode:
 class AgentState(TypedDict, total=False):
     # add_messages so each node's returned messages accumulate in the state
     # instead of replacing the list.
-    messages: Annotated[List[BaseMessage], add_messages]
+    messages: Annotated[list[BaseMessage], add_messages]
     agent_id: str
     class_level: str
     subject: str
     memory_only_mode: bool
     needs_new_block: str
     proposed_block_config: dict
-    memory_problems: List[str]
+    memory_problems: list[str]
     # Guard session opened by the caller (dashboard, API): carries the class policy and the
     # off-topic counter. Required: no turn is answered without the topical guard.
     session_id: str
@@ -330,10 +330,10 @@ class AgentState(TypedDict, total=False):
     interaction_mode: InteractionMode | dict
     # {"spoken": str | None, "written": str | None}, rendered for the output channel.
     rendered_answer: dict
-    sources: List[dict]
-    tool_problems: List[str]
-    answer_problems: List[str]
-    searches: List[str]
+    sources: list[dict]
+    tool_problems: list[str]
+    answer_problems: list[str]
+    searches: list[str]
     # The topical guard's verdict for the turn: on_topic, off_topic or uncertain.
     guard_outcome: str
     # The tutor's previous answer, as the caller showed it (without its source list): what
@@ -342,16 +342,16 @@ class AgentState(TypedDict, total=False):
     previous_answer: str
     # The answer text of this turn, without the appended source list.
     answer_text: str
-    notebook_saves: List[dict]
+    notebook_saves: list[dict]
     # Searches the model asked for and the query gate refused as not school use.
-    refused_searches: List[str]
+    refused_searches: list[str]
 
 
 class GuardSessionRequired(ValueError):
     """A turn reached the planner without a guard session."""
 
 
-def build_message_window(history, prompt, exchanges: int) -> List[BaseMessage]:
+def build_message_window(history, prompt, exchanges: int) -> list[BaseMessage]:
     """
     The transcript sent to the model, trimmed to the last `exchanges` turns.
 
@@ -364,7 +364,7 @@ def build_message_window(history, prompt, exchanges: int) -> List[BaseMessage]:
     L1/L2 blocks, which carry continuity of topic and profile, just not the
     literal transcript.
     """
-    window: List[BaseMessage] = []
+    window: list[BaseMessage] = []
     if exchanges > 0:
         for entry in history[-(exchanges * 2):]:
             content = entry.get("content", "")
@@ -380,7 +380,7 @@ async def _update_student_memory(
     user_query: str,
     agent_response: str,
     dll: dict
-) -> List[str]:
+) -> list[str]:
     """
     Extract new information and save it to local LanceDB.
 
@@ -408,11 +408,11 @@ Rules:
 
 Example: {{"student_profile": "", "learning_preferences": "", "current_session": "The student is asking about the manorial system in the Middle Ages (5th Grade History)."}}
 """
-    problems: List[str] = []
+    problems: list[str] = []
     try:
         raw_extraction = await _call_extraction_model(extraction_prompt)
     except Exception as e:
-        logger.error(f"Error during memory extraction: {e}")
+        logger.error("Error during memory extraction: %s", e)
         return [f"the memory extractor could not be reached ({e})"]
 
     updates, problems = parse_extraction(raw_extraction)

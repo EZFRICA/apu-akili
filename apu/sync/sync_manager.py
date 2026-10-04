@@ -19,7 +19,6 @@ import asyncio
 import hashlib
 import json
 import os
-from typing import Tuple
 
 import pandas as pd
 
@@ -57,9 +56,8 @@ async def _get_storage_client():
         if gac_path and os.path.exists(gac_path):
             credentials = service_account.Credentials.from_service_account_file(gac_path)
             return storage.Client(credentials=credentials)
-        else:
-            credentials, project = google.auth.default()
-            return storage.Client(credentials=credentials, project=project)
+        credentials, project = google.auth.default()
+        return storage.Client(credentials=credentials, project=project)
     except Exception as e:
         logger.error("[Sync] Auth failed: %s", e)
         return None
@@ -140,11 +138,11 @@ def get_file_hash(filepath: str) -> str:
     return f"sha256:{sha256_hash.hexdigest()}"
 
 
-async def download_course(class_level: str, subject: str) -> Tuple[bool, str]:
+async def download_course(class_level: str, subject: str) -> tuple[bool, str]:
     """
     Downloads a specific course from the registry and imports it into LanceDB.
     """
-    logger.info(f"[Sync] Downloading course: {class_level}/{subject}...")
+    logger.info("[Sync] Downloading course: %s/%s", class_level, subject)
 
     # 1. Fetch remote manifest
     manifest = await _fetch_remote_json("manifest.json")
@@ -198,6 +196,8 @@ async def download_course(class_level: str, subject: str) -> Tuple[bool, str]:
         blob = bucket.blob(blob_name)
         blob.download_to_filename(temp_parquet)
     except Exception as e:
+        # A download that fails halfway can leave a partial file behind.
+        _discard(temp_parquet)
         return False, f"GCS Download failed: {e}"
 
     # The manifest states a sha256 per file; check it instead of merely recording it. This
@@ -218,15 +218,25 @@ async def download_course(class_level: str, subject: str) -> Tuple[bool, str]:
     else:
         logger.warning("[Sync] Manifest carries no hash for %s; imported unverified.", blob_name)
 
-    # 4-5. Import into LanceDB and record it in the local manifest
+    # 4-5. Import into LanceDB and record it in the local manifest. The download is removed
+    # whatever happens: it used to be removed only after a successful import, so every
+    # course that failed to import kept its full size in the cache for good.
     try:
         import_course_parquet(temp_parquet, class_level, subject, file_info.get("hash", ""))
-        # Cleanup temp file
-        os.remove(temp_parquet)
     except Exception as e:
         return False, f"Import into LanceDB failed: {e}"
+    finally:
+        _discard(temp_parquet)
 
-    return True, f"Course '{class_level} — {subject}' successfully downloaded and imported."
+    return True, f"Course '{class_level}/{subject}' downloaded and imported."
+
+
+def _discard(path: str) -> None:
+    """Remove a temporary file if it is there; one that is already gone is not an error."""
+    try:
+        os.remove(path)
+    except FileNotFoundError:
+        pass
 
 
 def import_course_parquet(parquet_path: str, class_level: str, subject: str, file_hash: str = "") -> int:
@@ -273,7 +283,7 @@ def import_course_parquet(parquet_path: str, class_level: str, subject: str, fil
     return len(df)
 
 
-async def sync_with_registry() -> Tuple[bool, str]:
+async def sync_with_registry() -> tuple[bool, str]:
     """
     Refresh the system prompts from the registry.
 

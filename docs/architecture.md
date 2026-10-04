@@ -6,7 +6,7 @@ One turn, from what the pupil says to what they get back:
 what the pupil said (typed, or a recording transcribed first)
         │
         ▼
-  topical guard ─────────────► off topic  → a kind reply, counted, escalated at the threshold
+  topical guard ─────────────► off topic  → a reply worded for that attempt, counted, escalated
   (school use? off topic?      welfare    → a caring reply, never counted, never stored
    distress?)                  uncertain  → answered, but no tools
         │ on topic (a ValidatedTurn is issued)
@@ -25,7 +25,8 @@ what the pupil said (typed, or a recording transcribed first)
   the answer is rendered for the channel (text, spoken, braille) with its sources
         │
         ▼
-  memory write-back: a small model turns the exchange into JSON, stored in L2 and paged to L3
+  memory write-back: a small model turns the exchange into JSON, stored in L2 and paged to L3,
+  awaited before the answer is returned
 ```
 
 Where each piece lives:
@@ -38,7 +39,13 @@ Where each piece lives:
 | Guard | NeMo Guardrails rail, per-class policy, escalations | `apu/guardrails/` |
 | Tools | web search and the notebook, both gated on the turn's proof | `apu/tools/` |
 | Modality | interaction modes, citations, braille, speech | `apu/modality/` |
-| Interfaces | the pupil's chat, and the teacher, admin and demo pages | `apu/ui/` |
+| Models | one OpenAI-compatible client per provider, one model per role | `apu/inference/llm.py` |
+| Courses | the cloud registry download, checked against the manifest's hash | `apu/sync/` |
+| Streamlit | the pupil, teacher, admin and demo pages, and the turn they share | `apu/ui/app.py`, `apu/ui/turn.py` |
+| Live voice lab | the websocket every voice front end talks to, and its own page | `apu/ui/live/` |
+| Keynote stage | Pocket Akili in 3D, served by the lab | `apu/ui/presentation/` |
+| Shared layer | the socket and the microphone both voice front ends run on | `apu/ui/shared/` |
+| Teacher API | escalations and classes, authorized from the registries | `apu/api/` |
 
 Two things kept out of the tutoring memory on purpose: escalation events
 (`apu/mmu/escalation_store.py`) and the pupil's notebook (`apu/notebook/`). Neither is a DLL

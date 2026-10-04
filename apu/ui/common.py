@@ -24,7 +24,6 @@ import streamlit.components.v1 as components  # noqa: E402
 from apu import config  # noqa: E402
 from apu.auth import assignments  # noqa: E402
 from apu.demo.seed import load_demo_students  # noqa: E402
-from apu.guardrails.policy import get_class_policy_registry  # noqa: E402
 from apu.guardrails.session import UnknownSession  # noqa: E402
 from apu.guardrails.session import sessions as guard_sessions  # noqa: E402
 from apu.modality.plain_text import plain_text  # noqa: E402,F401  (re-exported for the views)
@@ -133,10 +132,6 @@ def ensure_guard_session(identity: DemoIdentity) -> str:
     session = guard_sessions.open_session(student_id=identity.person_id, class_id=identity.class_id)
     st.session_state.guard_session_id = session.session_id
     return session.session_id
-
-
-def class_threshold(class_id: str) -> int:
-    return get_class_policy_registry().get(class_id).escalation_threshold
 
 
 def speak_button(text: str, key: str, autoplay: bool = False) -> None:

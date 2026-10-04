@@ -1,4 +1,4 @@
-"""Local embedding wrapper, kept off Nebius deliberately.
+"""Local embedding wrapper, kept off every remote provider deliberately.
 
 Only the answer and extraction calls go to a remote model. The embedder stays local
 because it sits on the hot path for every retrieval, and the whole point of this
@@ -26,7 +26,7 @@ import asyncio
 import math
 import os
 import threading
-from typing import List, Sequence
+from collections.abc import Sequence
 
 from fastembed import TextEmbedding
 
@@ -72,17 +72,17 @@ class LocalOnnxEmbedder:
             model_name, expected_dim, cache_dir,
         )
 
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
         return [list(map(float, v)) for v in self._model.embed(list(texts))]
 
-    def embed_query(self, text: str) -> List[float]:
+    def embed_query(self, text: str) -> list[float]:
         return self.embed_documents([text])[0]
 
-    async def aembed_query(self, text: str) -> List[float]:
+    async def aembed_query(self, text: str) -> list[float]:
         # fastembed is synchronous CPU work; keep it off the event loop.
         return await asyncio.to_thread(self.embed_query, text)
 
-    async def aembed_documents(self, texts: List[str]) -> List[List[float]]:
+    async def aembed_documents(self, texts: list[str]) -> list[list[float]]:
         return await asyncio.to_thread(self.embed_documents, texts)
 
 
@@ -146,7 +146,7 @@ def embed(texts: list[str]) -> list[list[float]]:
     return get_embedder().embed_documents(texts)
 
 
-def normalize_vector(vector: Sequence[float]) -> List[float]:
+def normalize_vector(vector: Sequence[float]) -> list[float]:
     """
     Scale a vector to unit L2 length.
 

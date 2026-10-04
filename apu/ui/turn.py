@@ -1,9 +1,9 @@
 """One student turn, independent of the interface that shows it.
 
-Both front ends call this: the Streamlit pages and the Chainlit chat. Keeping the turn here
-means the rules that matter (the guard runs first, the transcript of a recording is treated
-exactly like typed text, the answer is rendered for the channel) are written once and tested
-once, rather than drifting between two user interfaces.
+Two front ends call this: the Streamlit pages and the live voice lab, which also drives the
+keynote stage. Keeping the turn here means the rules that matter (the guard runs first, the
+transcript of a recording is treated exactly like typed text, the answer is rendered for the
+channel) are written once and tested once, rather than drifting between the interfaces.
 
 Nothing here talks to a widget. It takes what the student said and returns what happened.
 """

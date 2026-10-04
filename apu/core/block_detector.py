@@ -1,6 +1,5 @@
 """Heuristic detector proposing a new dynamic DLL block. Ported unchanged from Akili."""
 
-from typing import Dict, List, Optional
 
 from apu.core.block_proposal import BlockProposal
 from apu.logger import get_logger
@@ -11,7 +10,7 @@ logger = get_logger(__name__)
 MIN_TURNS_FOR_DETECTION = 4      # Minimum number of conversation turns
 TOPIC_REPETITION_THRESHOLD = 2   # Number of times a topic should be mentioned
 
-def detect_new_block_opportunity(history: List[Dict], dll: Dict) -> Optional[Dict]:
+def detect_new_block_opportunity(history: list[dict], dll: dict) -> dict | None:
     """
     Analyzes recent history to detect if a new knowledge block
     should be created (e.g., note-taking on a new chapter).
@@ -26,7 +25,7 @@ def detect_new_block_opportunity(history: List[Dict], dll: Dict) -> Optional[Dic
     dynamic_count = dll.get("dynamic_block_count", 0)
     dynamic_max = dll.get("dynamic_block_max", 5)
     if dynamic_count >= dynamic_max:
-        logger.debug(f"Dynamic block limit reached ({dynamic_count}/{dynamic_max}).")
+        logger.debug("Dynamic block limit reached (%d/%d).", dynamic_count, dynamic_max)
         return None
 
     # 3. Heuristic analysis of recent student messages
@@ -53,7 +52,7 @@ def detect_new_block_opportunity(history: List[Dict], dll: Dict) -> Optional[Dic
 
     if trigger_count >= TOPIC_REPETITION_THRESHOLD:
         proposed_id = f"dynamic_block_{dynamic_count + 1}"
-        logger.info(f"Block opportunity detected (triggers={trigger_count}): {proposed_id}")
+        logger.info("Block opportunity detected (triggers=%d): %s", trigger_count, proposed_id)
 
         # The topic being learned, taken from the student's own words. This used
         # to be absent entirely, so the executor wrote a block with no content.
