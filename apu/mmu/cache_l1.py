@@ -69,9 +69,8 @@ def get(block_id: str) -> str | None:
             _metrics[block_id]["last_hit_at"] = time.time()
             logger.debug("L1 HIT    — '%s'", block_id)
             return content
-        else:
-            del _cache[block_id]
-            logger.debug("L1 EVICT  — '%s' (TTL expired)", block_id)
+        del _cache[block_id]
+        logger.debug("L1 EVICT  — '%s' (TTL expired)", block_id)
 
     _metrics[block_id]["l1_misses"] += 1
     _metrics[block_id]["last_miss_at"] = time.time()

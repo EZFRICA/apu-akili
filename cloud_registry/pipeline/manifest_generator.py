@@ -46,7 +46,7 @@ def generate_manifest(base_url: str = "https://storage.googleapis.com/akili-regi
     # Load curriculum to build the catalog
     catalog = {}
     if CURRICULUM_PATH.exists():
-        with open(CURRICULUM_PATH, "r", encoding="utf-8") as f:
+        with open(CURRICULUM_PATH, encoding="utf-8") as f:
             curriculum = yaml.safe_load(f)
         catalog = {
             cls: list(data.get("subjects", []))
