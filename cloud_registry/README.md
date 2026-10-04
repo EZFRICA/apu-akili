@@ -2,7 +2,7 @@
 
 Ported from Akili. This module turns the curriculum into what a student device downloads: vectorised course files, system prompts, and a manifest describing both. It is the source of truth for every device.
 
-No LLM is involved on this side: courses are embedded locally, with the same ONNX model the device uses. Nemotron (Nebius Token Factory) is only called on the device, at question time.
+No LLM is involved on this side: courses are embedded locally, with the same ONNX model the device uses. A model is only called on the device, at question time.
 
 ---
 

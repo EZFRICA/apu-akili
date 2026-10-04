@@ -10,16 +10,15 @@ Each model call is routed to its own provider and model, chosen by measuring the
 
 See [docs/decisions.md](./docs/decisions.md) for the decisions behind it, what is still open, and what was measured against the live models.
 
-Four things live in this repository, and only the first is the product:
+Three things live in this repository, and only the first is the product:
 
 | | What it is |
 |---|---|
 | **The tutor** | `apu/`, the memory hierarchy, the guard, the notebook and the modalities, with a Streamlit interface for the pupil, the teacher and the demo. |
 | **The live voice lab** | `apu/ui/live/`, a FastAPI and WebSocket bench for comparing real-time voice runners on the same pipeline. A test bench, not a product surface. |
-| **The chat interface** | `apu/ui/chainlit_app.py`, a chat-first front end over the same turn. |
 | **Pocket Akili** | `apu/ui/presentation/`, the tactile handheld companion: its specification, and a keynote stage where pressing a key on the 3D device runs a real turn. The device itself is a design study, with no firmware behind it. |
 
-The interfaces are deliberately several: they are aimed at different people, and a pupil picks the one that suits them. What they share is `apu/ui/turn.py`, so the rules that matter cannot drift between them.
+The interfaces are deliberately several, because they are aimed at different people. What they share is `apu/ui/turn.py`, so the rules that matter cannot drift between them.
 
 ## Why
 
@@ -90,11 +89,11 @@ Every command runs through [uv](https://docs.astral.sh/uv/), from the repository
 ### 2. Get the code and install the dependencies
 
 ```bash
-git clone git@github.com:EZFRICA/apu-nemotron.git
+git clone git@github.com:EZFRICA/apu-akili.git
 ```
 
 ```bash
-cd apu-nemotron
+cd apu-akili
 ```
 
 ```bash
@@ -179,14 +178,13 @@ The suite needs neither a key nor the network: every provider's client is replac
 
 ### 7. Launch an interface
 
-There are four, and they share one tutor: the same guard, the same notebook, the same memory.
-Each is one command.
+There are three, and they share one tutor: the same guard, the same notebook, the same memory.
+Two commands start all of them.
 
 | Interface | Command | Opens at |
 |---|---|---|
 | **Streamlit**: pupil, teacher, admin, demo setup | `uv run streamlit run apu/ui/app.py` | `http://localhost:8501` |
-| **Chainlit**: the pupil, chat-first | `uv run chainlit run apu/ui/chainlit_app.py -w` | `http://localhost:8000` |
-| **Live voice lab**: speech in and out, three engines compared | `uv run python -m apu.ui.live.proxy` | `http://localhost:8765/` |
+| **Live voice lab**: speech in and out, three engines compared | `uv run python -m apu.ui.live.proxy` | `http://localhost:8765/` (this machine only) |
 | **Keynote stage**: Pocket Akili in 3D | the same command as the lab | `http://localhost:8765/presentation/` |
 
 The last two are **one server**. It carries the websocket every front end talks to, and it
@@ -215,8 +213,6 @@ To use another port:
 uv run streamlit run apu/ui/app.py --server.port 8502
 ```
 
-**Chainlit**, `uv run chainlit run apu/ui/chainlit_app.py -w`, is the chat-first interface for the pupil: native token streaming, recording built into the composer, action buttons under a message. The turn runs through the same `apu.ui.turn` as Streamlit, so the guard and the pedagogy behave identically.
-
 **The live voice lab**, `uv run python -m apu.ui.live.proxy`, is FastAPI and websockets: speech in and out with Gemini Live or ElevenLabs, voice intents, braille as it is spoken. Its own page at `/` is the instrument panel, where the three engines can be switched between and compared; see [apu/ui/live/README.md](apu/ui/live/README.md).
 
 For the physical companion designed for pupils with a visual impairment, see the keynote stage in [apu/ui/presentation/README.md](apu/ui/presentation/README.md). It holds the specification of Pocket Akili, a 165 g portable tactile recorder with keys in relief, embossed braille markings, a 3.5 mm jack, USB-C fast charging and a dock for a refreshable braille display, and it renders the device in 3D: pressing a key there runs a real turn through the live lab, with the same guard and the same notebook. The **same command** serves it, at `/presentation/`: one server for the backend and both front ends. That is also why the microphone, the resampler and the websocket client live once, in `apu/ui/shared/`, instead of once per interface, which is how two audio defects fixed in one of them went on running in the other.
@@ -243,7 +239,7 @@ rm -rf data
 
 The full run sheet is in [DEMO.md](./DEMO.md). In short:
 
-1. With `.env` holding `NEBIUS_API_KEY` and `TAVILY_API_KEY`, prepare the demo data. This resets the local state under `data/`, builds and imports the courses locally (no Google credentials), and seeds example escalations with their clusters:
+1. With `.env` holding `GEMINI_API_KEY` and `TAVILY_API_KEY`, prepare the demo data. This resets the local state under `data/`, builds and imports the courses locally (no Google credentials), and seeds example escalations with their clusters:
    ```bash
    uv run python scripts/prepare_demo.py
    ```
@@ -413,7 +409,6 @@ apu/
   ui/
     turn.py                # one pupil turn, independent of the page that shows it
     app.py                 # Streamlit pages (uv run streamlit run apu/ui/app.py)
-    chainlit_app.py        # Chainlit chat interface (uv run chainlit run apu/ui/chainlit_app.py -w)
     shared/                # socket.js, audio.js: the websocket, the microphone and the
                            #   resampler, used by both front ends below
     live/                  # Live voice lab: the websocket server AND its own page
