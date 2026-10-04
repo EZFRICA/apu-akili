@@ -328,6 +328,11 @@ def test_the_page_ships_the_accessibility_patch():
     observer_target = ACCESSIBILITY_SCRIPT.split("new MutationObserver(")[1].split(")")[0]
     assert observer_target == "applyLandmarks", observer_target
     assert "apu-skip" not in ACCESSIBILITY_SCRIPT.split("function applyLandmarks")[1].split("function install")[0]
+    # A rerun destroys the component's realm and leaves its listeners dead but present. Each
+    # run removes the previous keyboard listener and skip link before adding its own; a guard
+    # that skipped registration instead left Alt+Q silently dead after the first rerun.
+    assert "doc.removeEventListener('keydown', win.__apuKeydown)" in ACCESSIBILITY_SCRIPT
+    assert "previous.remove()" in ACCESSIBILITY_SCRIPT
 
     app = (_pathlib.Path(__file__).resolve().parent.parent / "apu" / "ui" / "app.py").read_text()
     assert "inject_accessibility()" in app, "the patch must run on every page"
