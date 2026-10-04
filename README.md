@@ -17,7 +17,7 @@ Four things live in this repository, and only the first is the product:
 | **The tutor** | `apu/`, the memory hierarchy, the guard, the notebook and the modalities, with a Streamlit interface for the pupil, the teacher and the demo. |
 | **The live voice lab** | `apu/ui/live/`, a FastAPI and WebSocket bench for comparing real-time voice runners on the same pipeline. A test bench, not a product surface. |
 | **The chat interface** | `apu/ui/chainlit_app.py`, a chat-first front end over the same turn. |
-| **Pocket Akili** | `apu/ui/hardware/`, a specification and 3D viewer for a tactile handheld companion. A design study, with no firmware behind it. |
+| **Pocket Akili** | `apu/ui/presentation/`, the tactile handheld companion: its specification, and a keynote stage where pressing a key on the 3D device runs a real turn. The device itself is a design study, with no firmware behind it. |
 
 The interfaces are deliberately several: they are aimed at different people, and a pupil picks the one that suits them. What they share is `apu/ui/turn.py`, so the rules that matter cannot drift between them.
 
@@ -61,8 +61,8 @@ and the runners-up are in [docs/models.md](./docs/models.md).
 | Topical guard | `gemini-3.5-flash-lite` | holds all 69 attacks of the red team corpus, twice, at 0.66 s against 1.58 s for a 120B model |
 | Memory write-back | `gemini-3.5-flash-lite` | same result as the previous model at a fifth of the latency |
 | Search-query gate | `gemini-3.1-flash-lite` | 10/10, and unlike the guard's model it does not block legitimate PE queries |
-| Speech out | `eleven_flash_v2_5` | first audio in 0.52 s against 11.55 s, and half the French error rate |
-| Speech in | `scribe_v2` | 1.04 s. The measurement preferred `scribe_v1`, which kept every number in a spoken French maths question: see [docs/models.md](./docs/models.md) |
+| Speech out | `eleven_v4_turbo` | 1.68 s, first audio in 0.35 s, read back without an error. Half the latency of `eleven_v4`, twice that of `eleven_flash_v2_5` ([docs/models.md](./docs/models.md)) |
+| Speech in | `scribe_v2` | around 1 s. Re-measured against `scribe_v1` on twenty-two spoken numbers: the two fail identically, so nothing separates them ([docs/models.md](./docs/models.md)) |
 | Retrieval embeddings | local MiniLM (ONNX) | 4 ms per query and works with no network, which is the point of the architecture |
 
 Every text role goes through one OpenAI-compatible client per provider, so moving a role is a
@@ -119,7 +119,7 @@ Then open `.env` and set `GEMINI_API_KEY`, which every text role uses by default
 | `APU_EXTRACTION_PROVIDER` / `APU_EXTRACTION_MODEL` | `gemini` / `gemini-3.5-flash-lite` | Extracts what to remember from each exchange |
 | `APU_QUERY_GATE_PROVIDER` / `APU_QUERY_GATE_MODEL` | `gemini` / `gemini-3.1-flash-lite` | Classifies a search query before it is sent |
 | `ELEVENLABS_API_KEY` | *(none)* | Speech in and out; without it the voice modes fall back to the browser voice |
-| `APU_TTS_PROVIDER` / `APU_TTS_MODEL` | `elevenlabs` / `eleven_flash_v2_5` | Reads the answer out loud |
+| `APU_TTS_PROVIDER` / `APU_TTS_MODEL` | `elevenlabs` / `eleven_v4_turbo` | Reads the answer out loud. Set it to `eleven_flash_v2_5` for the fastest measured model, 0.83 s sooner |
 | `APU_STT_PROVIDER` / `APU_STT_MODEL` | `elevenlabs` / `scribe_v2` | Transcribes the pupil's recording |
 | `NEBIUS_API_KEY`, `NVIDIA_API_KEY` | *(none)* | Only needed if a role is pointed at those providers |
 | `LOCAL_EMBEDDING_MODEL` | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` | Local ONNX embedder (full fastembed id) |
@@ -177,7 +177,23 @@ uv run pytest
 
 The suite needs neither a key nor the network: every provider's client is replaced by one fake that also checks which model each role's call goes to. If step 4 was skipped, the 7 tests that use the real embedding model are reported as skipped and everything else still runs.
 
-### 7. Launch the interface
+### 7. Launch an interface
+
+There are four, and they share one tutor: the same guard, the same notebook, the same memory.
+Each is one command.
+
+| Interface | Command | Opens at |
+|---|---|---|
+| **Streamlit**: pupil, teacher, admin, demo setup | `uv run streamlit run apu/ui/app.py` | `http://localhost:8501` |
+| **Chainlit**: the pupil, chat-first | `uv run chainlit run apu/ui/chainlit_app.py -w` | `http://localhost:8000` |
+| **Live voice lab**: speech in and out, three engines compared | `uv run python -m apu.ui.live.proxy` | `http://localhost:8765/` |
+| **Keynote stage**: Pocket Akili in 3D | the same command as the lab | `http://localhost:8765/presentation/` |
+
+The last two are **one server**. It carries the websocket every front end talks to, and it
+serves both pages and the layer under them, so there is no second command and no second port:
+the stage cannot work without the lab, and a page that renders but does nothing is worse than
+no page. The teacher API is separate, and its command is in
+[Teacher and admin API](#teacher-and-admin-api-fastapi).
 
 ```bash
 uv run streamlit run apu/ui/app.py
@@ -199,11 +215,11 @@ To use another port:
 uv run streamlit run apu/ui/app.py --server.port 8502
 ```
 
-An alternative chat-first interface is available with Chainlit via `uv run chainlit run apu/ui/chainlit_app.py -w`. It provides native token streaming, in-composer audio recording, and action buttons directly under messages. The tutor runs through the shared `apu.ui.turn` runner, ensuring the topical guard and pedagogical pipeline behave identically to Streamlit.
+**Chainlit**, `uv run chainlit run apu/ui/chainlit_app.py -w`, is the chat-first interface for the pupil: native token streaming, recording built into the composer, action buttons under a message. The turn runs through the same `apu.ui.turn` as Streamlit, so the guard and the pedagogy behave identically.
 
-For real-time multimodal audio and voice streaming, see the dedicated lab in [apu/ui/live/README.md](apu/ui/live/README.md). This interface runs on FastAPI and WebSockets to support bidirectional audio with Gemini Live and ElevenLabs, including voice intents and live braille generation. It can be launched with `uv run python -m apu.ui.live.proxy` on port 8765.
+**The live voice lab**, `uv run python -m apu.ui.live.proxy`, is FastAPI and websockets: speech in and out with Gemini Live or ElevenLabs, voice intents, braille as it is spoken. Its own page at `/` is the instrument panel, where the three engines can be switched between and compared; see [apu/ui/live/README.md](apu/ui/live/README.md).
 
-For the physical companion prototype designed for visually and motor impaired students, see the interactive 3D hardware studio in [apu/ui/hardware/README.md](apu/ui/hardware/README.md). It models a lightweight (165g) portable tactile voice recorder featuring raised geometric buttons, embossed Braille markings, a 3.5mm audio jack, USB-C fast charging, and a dedicated refreshable Braille display dock connector. It can be launched with `uv run python -m apu.ui.hardware.app` on port 8766.
+For the physical companion designed for pupils with a visual impairment, see the keynote stage in [apu/ui/presentation/README.md](apu/ui/presentation/README.md). It holds the specification of Pocket Akili, a 165 g portable tactile recorder with keys in relief, embossed braille markings, a 3.5 mm jack, USB-C fast charging and a dock for a refreshable braille display, and it renders the device in 3D: pressing a key there runs a real turn through the live lab, with the same guard and the same notebook. The **same command** serves it, at `/presentation/`: one server for the backend and both front ends. That is also why the microphone, the resampler and the websocket client live once, in `apu/ui/shared/`, instead of once per interface, which is how two audio defects fixed in one of them went on running in the other.
 
 
 ### 8. Where state lives, and how to reset it
@@ -398,8 +414,12 @@ apu/
     turn.py                # one pupil turn, independent of the page that shows it
     app.py                 # Streamlit pages (uv run streamlit run apu/ui/app.py)
     chainlit_app.py        # Chainlit chat interface (uv run chainlit run apu/ui/chainlit_app.py -w)
-    live/                  # Live voice lab, WebSockets, Gemini Live & ElevenLabs (see apu/ui/live/README.md)
-    hardware/              # 3D tactile portable recorder prototype for students with disabilities (see apu/ui/hardware/README.md)
+    shared/                # socket.js, audio.js: the websocket, the microphone and the
+                           #   resampler, used by both front ends below
+    live/                  # Live voice lab: the websocket server AND its own page
+                           #   (uv run python -m apu.ui.live.proxy, see its README)
+    presentation/          # Pocket Akili: specification and keynote stage, served by the
+                           #   lab at /presentation/ (see its README)
     common.py              # identity selector (stub), guard session, accessibility patch
     views/                 # student.py, teacher.py, demo.py
   demo/

@@ -197,9 +197,32 @@ French questions carrying ten numbers, spoken by `eleven_flash_v2_5`, then trans
 | elevenlabs: scribe_v2 | 9/10 | 1.04 s |
 
 Every candidate keeps the numbers, in figures or in words, except `scribe_v2` on one clip, where
-it produced the hallucination discussed above. **This is what settles the role**: `scribe_v1` is
-as accurate as the Gemini models on what matters and more than twice as fast, and it is the
-model to use rather than `scribe_v2`.
+it produced the hallucination discussed above.
+
+**Re-measured, and the conclusion does not hold.** The paragraph that stood here said that
+single dropped number settled the role in `scribe_v1`'s favour. On a wider set, ten French
+maths questions carrying twenty-two numbers, the two models fail **identically**: the same
+three clips, the same words, in the same places.
+
+| Candidate | Numbers kept | Median |
+|---|---:|---:|
+| elevenlabs: scribe_v1 | 16/22 | 1.02 s |
+| elevenlabs: scribe_v2 | 16/22 | 1.55 s |
+
+Three of those six losses are the scoring being strict rather than the model being wrong:
+"Combien font 1 quart plus 1 sixieme ?" came back as "un quart plus un sixième", which is
+correct French and was counted as a miss. The three real errors, "Partage 36 billes entre 4
+eleves" heard as "Partage 26 bills entre quoi de lève", and "le tiers de 81" as "quatre un",
+belong to **both** models. An error both models make on the same clip is the clip, not the
+transcriber.
+
+The latency ordering also reversed between runs: `scribe_v2` measured 0.92 s on the ten-clip
+set above and 1.55 s here, against 1.03 s and 1.02 s for `scribe_v1`. That spread is the
+network, not the models.
+
+**So nothing separates them.** `APU_STT_MODEL` loads `scribe_v2` and there is no measurement
+that argues for changing it. What the old paragraph did was promote one run of one clip into
+a rule, which is the mistake this document exists to avoid.
 
 The 71% worst clip needs reading before it is believed: for "Combien font un quart plus un
 sixieme ?" both Gemini transcribers wrote **"Combien font 1/4 + 1/6 ?"**. That is a 71% word
@@ -259,11 +282,29 @@ and a model identifier is part of it.
 | gemini: gemini-2.5-flash-preview-tts | 6.92 s | 8.9 s | 1.3 x | 0 |
 | gemini: gemini-2.5-pro-preview-tts | 10.77 s | 11.1 s | 1.0 x | 0 |
 
-**A caveat on speech in.** The code loads `scribe_v2`, while the measurement below chose
-`scribe_v1`: `scribe_v2` dropped a number on one clip of the maths set, and a tutor that
-mishears "un quart" is worse than a slower one. The two are within 0.02 s of each other, so
-the choice costs nothing either way. This is a decision to make deliberately rather than by
-drift, and `APU_STT_MODEL` sets it.
+### The v4 generation, measured
+
+`eleven_v4_turbo` is what `APU_TTS_MODEL` loads, and it was chosen to be tried rather than
+because anything here said it was better. It has now been through the same protocol as the
+table above, with `eleven_v4` beside it and `eleven_flash_v2_5` as the reference:
+
+| Candidate | Latency | First audio | Audio produced | Faster than real time | Read-back WER |
+|---|---:|---:|---:|---:|---:|
+| elevenlabs: eleven_flash_v2_5 | **0.85 s** | **0.32 s** | 13.8 s | 16.3 x | 0% |
+| elevenlabs: eleven_v4_turbo (current) | 1.68 s | 0.35 s | 16.1 s | 9.6 x | 0% |
+| elevenlabs: eleven_v4 | 3.15 s | 0.77 s | 16.1 s | 5.1 x | 0% |
+
+**`eleven_v4_turbo` is worth its name**: it halves `eleven_v4`'s latency and more than halves
+its time to first audio, for a reading that comes back transcribed without a single error. It
+remains twice as slow as `eleven_flash_v2_5`, and that is the whole cost: 0.83 s more before
+the answer starts, and 0.03 s more before the pupil hears anything.
+
+Both v4 models produce **16.1 s** of audio where the flash model produces 13.8 s for the same
+text. They speak more slowly, by a sixth. Whether that is better for a pupil reading along is
+not something this measurement can judge, and neither is the voice itself: the read-back error
+rate is 0% for all three, so it separates nothing. **The case for `eleven_v4_turbo` over
+`eleven_flash_v2_5` has to be made on how the voice sounds, by someone listening**, and it
+costs under a second to make that choice either way.
 
 **The read-back separates nothing here, and saying otherwise would be dishonest.** All nine
 came back at the same error rate, to the third decimal, and that constant is a French
@@ -333,7 +374,7 @@ and a test pins them together.
 | Search-query gate | `gemini:gemini-3.1-flash-lite` | unchanged accuracy, a third of the latency |
 | Notebook key points and revision sheet | `gemini:gemini-3.5-flash-lite` | **1.0 s each**, against 6.7 s and 3.5 s on the tutor model |
 | Speech out | `elevenlabs:eleven_flash_v2_5` | a spoken turn end to end: **8.6 s**, against 43.9 s |
-| Speech in | `elevenlabs:scribe_v2` | 1.04 s. See the caveat below: the measurement preferred `scribe_v1` |
+| Speech in | `elevenlabs:scribe_v2` | around 1 s. Re-measured against `scribe_v1`: the two fail identically, so nothing separates them |
 | Speech out, Gemini fallback | `gemini:gemini-3.8-flash-lite-tts` | 3.47 s a reading, against 6.29 s for the previous default |
 | Retrieval embeddings | local MiniLM (ONNX) | 8 ms per query, unchanged and still offline |
 
@@ -353,7 +394,7 @@ for the models it was measured on.
 | memory write-back | Nemotron-3-Nano | gemini-3.5-flash-lite or gemma-3-27b-it | same result, 0.77 to 0.94 s against 3.92 s |
 | notebook key points | nemotron-3-super-120b | keep | already moved off Nano after measurement, 11.6 s to 3.5 s |
 | embeddings | local MiniLM | keep | 4 ms and offline; the online alternatives are 50x slower for 2 chapters of accuracy on a set production filters anyway |
-| speech to text | gemini-3.5-transcribe | **scribe_v1** | 10/10 numbers kept against 10/10 for Gemini Flash, at 1.04 s against 2.43 s; and not `scribe_v2`, which hallucinated on one clip |
+| speech to text | gemini-3.5-transcribe | **either ElevenLabs scribe** | 16/22 numbers kept by both `scribe_v1` and `scribe_v2`, on the same clips, at around 1 s against 2.43 s for Gemini Flash. The wider set removed the one clip that used to separate them |
 | speech out | gemini-3.1-flash-tts-preview | **eleven_flash_v2_5** | first audio in 0.52 s against 11.55 s, whole file in 0.87 s, half the French error rate |
 | speech out, fallback | | gemini-3.8-live | if a second provider is wanted: streams, so first audio in 1.38 s |
 | illustrations | none yet | gemini-3.1-flash-lite-image (Nano Banana 2 Lite) | only provider with image generation among the four |

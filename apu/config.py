@@ -159,11 +159,12 @@ REGISTRY_PROMPT_MAX_CHARS = int(os.environ.get("APU_REGISTRY_PROMPT_MAX_CHARS", 
 # The ids are the ones the Gemini API accepts, which differ from the console's display
 # names, and only some of them exist: list what the key can call before setting these.
 # Which provider reads and writes speech. Measured (docs/models.md): ElevenLabs synthesises
-# the same answer in 0.87 s against 11.55 s for the Gemini batch model, with the first audio
-# after 0.52 s, and its scribe_v1 keeps every number in a spoken French maths question at
-# 1.04 s. Gemini stays available as the other provider for both.
+# the same answer far faster than the Gemini batch models, eleven_v4_turbo in 1.68 s with the
+# first audio after 0.35 s, and eleven_flash_v2_5 in 0.85 s if latency matters more than the
+# voice. On speech in, scribe_v1 and scribe_v2 were re-measured against each other and fail
+# identically, so either will do. Gemini stays available as the other provider for both.
 VOICE_TTS_PROVIDER = os.environ.get("APU_TTS_PROVIDER", "elevenlabs")
-VOICE_TTS_MODEL = os.environ.get("APU_TTS_MODEL", "eleven_flash_v2_5")
+VOICE_TTS_MODEL = os.environ.get("APU_TTS_MODEL", "eleven_v4_turbo")
 VOICE_STT_PROVIDER = os.environ.get("APU_STT_PROVIDER", "elevenlabs")
 VOICE_STT_MODEL = os.environ.get("APU_STT_MODEL", "scribe_v2")
 

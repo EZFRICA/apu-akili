@@ -28,7 +28,7 @@ Run sheet for presenting the project live. Suggested length: 10 to 12 minutes.
 
 ### 1. The student and their tutor (2 min)
 
-Profile **Student — Aya K. (lycee-cocody:3eA)**, page **Student**, mode **Text → text**.
+Profile **Student, Aya K. (lycee-cocody:3eA)**, page **Student**, mode **Text → text**.
 
 - Ask: *"How do I add two fractions with different denominators?"*
 - Show: the guard's **✅ school work** badge, the structured answer, and the turn duration
@@ -83,7 +83,7 @@ Back in **Text → text**, after an answer (for example the fractions one from s
 
 ### 6. The teacher view (2 min)
 
-Profile **Teacher — prof-kouassi (lycee-cocody:3eA)**, page **Teacher / Admin**.
+Profile **Teacher, prof-kouassi (lycee-cocody:3eA)**, page **Teacher / Admin**.
 
 - Tab **🚨 Escalations**: Aya's escalation from step 3 (click **🔄 Refresh** if needed), plus the example escalations. Add a note and click **Mark as resolved**.
 - Tab **🧩 Clusters**: two groups, *PSG vs Marseille* and *Free Fire diamonds*. To include the new escalations, click **Recompute now (background job)**: the computation runs in the background, never at read time.
@@ -91,7 +91,7 @@ Profile **Teacher — prof-kouassi (lycee-cocody:3eA)**, page **Teacher / Admin*
 
 ### 7. The school admin (30 s)
 
-Profile **School admin — admin-cocody**. The class list holds **3eA and 4eB**, the school's two classes, and no class from another school.
+Profile **School admin, admin-cocody**. The class list holds **3eA and 4eB**, the school's two classes, and no class from another school.
 
 ## Watch out for
 

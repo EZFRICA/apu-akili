@@ -1,6 +1,6 @@
 # APU Akili · Student Tutor
 
-Welcome to **Akili**, your supportive AI school tutor powered by the Agent Processor Unit (APU). Ask about a lesson, an exercise, or your revision—by typing or by speaking into your microphone.
+Welcome to **Akili**, your supportive AI school tutor powered by the Agent Processor Unit (APU). Ask about a lesson, an exercise, or your revision, by typing or by speaking into your microphone.
 
 ---
 
