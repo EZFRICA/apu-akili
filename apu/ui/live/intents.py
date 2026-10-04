@@ -16,7 +16,14 @@ import re
 from apu import config
 from apu.logger import get_logger
 from apu.modality.braille._liblouis import LiblouisTranslationError, LiblouisUnavailable
+from apu.modality.braille.embosser_simulator import (
+    DEFAULT_CELLS_PER_LINE,
+    DEFAULT_LINES_PER_PAGE,
+    EmbosserError,
+    SimulatedEmbosser,
+)
 from apu.modality.braille.translator import (
+    BRAILLE_ASCII,
     BrailleEncoding,
     BrailleEncodingError,
     BrailleGrade,
@@ -44,6 +51,29 @@ BRAILLE_INTENT_RE = re.compile(
     r"\b(braille|format braille|in braille|braille code|translate to braille|en braille|code braille|traduis en braille|affiche le braille|donne.*braille)\b",
     re.IGNORECASE,
 )
+
+
+def last_explanation(history: list[dict] | None) -> str:
+    """
+    The last thing the tutor actually explained, which is not the last thing it said.
+
+    The lab answers an action with an acknowledgement: "Saved in your notebook", "Here is
+    the braille transcription of our last explanation". Those were appended to the history
+    as assistant turns like any answer, so the next thing that looked for "the last
+    explanation" found one of them. Measured, pressing braille twice embossed the sentence
+    "here is the braille transcription of our last explanation" instead of the lesson; a
+    pupil saying "save that" afterwards would have kept that sentence in their notebook.
+
+    An acknowledgement stays in the history, because the conversation did happen. It is
+    marked, and skipped here.
+    """
+    for entry in reversed(history or []):
+        if entry.get("role") != "assistant" or not entry.get("content"):
+            continue
+        if entry.get("announcement"):
+            continue
+        return entry["content"]
+    return ""
 
 
 def is_save_notebook_intent(text: str) -> bool:
@@ -82,6 +112,59 @@ def compute_braille(text: str) -> tuple[str, str]:
     return grade_1, grade_2
 
 
+def braille_ascii_to_unicode(braille_ascii: str) -> str:
+    """Braille ASCII back to the dot patterns, the inverse of unicode_to_braille_ascii."""
+    cells = []
+    for character in braille_ascii:
+        if character in "\n\f":
+            cells.append(character)
+            continue
+        index = BRAILLE_ASCII.find(character.upper())
+        # A character outside the table cannot be a cell; leaving it is better than guessing.
+        cells.append(chr(0x2800 + index) if index >= 0 else character)
+    return "".join(cells)
+
+
+def compute_emboss_job(text: str, grade: BrailleGrade = BrailleGrade.GRADE_2) -> dict | None:
+    """
+    The same text as an embosser would actually put it on paper.
+
+    Braille is not a line of cells on a screen. It is printed: forty cells to a line,
+    twenty-five lines to a page, words wrapped at spaces and a word longer than a line
+    split because paper cannot overflow. This is that layout, plus the BRF a real embosser
+    is fed, so what a pupil is shown is what they would hold.
+
+    None when liblouis or the layout refuses, and the caller says nothing rather than
+    promising a page that does not exist.
+    """
+    try:
+        ascii_braille = BrailleTranslator(grade=grade,
+                                          encoding=BrailleEncoding.EMBOSSER).translate(text)
+    except (LiblouisUnavailable, LiblouisTranslationError, BrailleEncodingError,
+            ValueError) as error:
+        logger.warning("Braille ASCII is unavailable for embossing: %s", error)
+        return None
+
+    embosser = SimulatedEmbosser()
+    try:
+        job = embosser.emboss(ascii_braille)
+    except (EmbosserError, ValueError) as error:
+        logger.warning("The braille could not be laid out for embossing: %s", error)
+        return None
+
+    return {
+        # Braille ASCII is what an embosser is fed; the dots are what a person reads. Both,
+        # laid out identically, because a preview that wraps differently from the paper is
+        # not a preview.
+        "pages": [list(page.lines) for page in job.pages],
+        "pages_unicode": [[braille_ascii_to_unicode(line) for line in page.lines]
+                          for page in job.pages],
+        "cells_per_line": DEFAULT_CELLS_PER_LINE,
+        "lines_per_page": DEFAULT_LINES_PER_PAGE,
+        "brf": job.to_brf(),
+    }
+
+
 def handle_save_notebook(student_id: str, history: list[dict], prompt: str) -> dict:
     """
     Keep the tutor's last answer in the pupil's notebook.
@@ -93,8 +176,7 @@ def handle_save_notebook(student_id: str, history: list[dict], prompt: str) -> d
     Raises whatever the store raises, NotebookFull in particular. The caller turns that
     into something the pupil hears; swallowing it here would lose the save in silence.
     """
-    content_to_save = next((entry["content"] for entry in reversed(history)
-                            if entry.get("role") == "assistant" and entry.get("content")), "")
+    content_to_save = last_explanation(history)
     if not content_to_save:
         content_to_save = NOTEBOOK_SAVE_RE.sub("", prompt).strip(" :,-.") or "Voice note recorded."
 
@@ -125,7 +207,8 @@ async def handle_summary_notebook(student_id: str) -> str:
     """
     entries = await asyncio.to_thread(store.NotebookStore().entries, student_id)
     if not entries:
-        return "Your notebook is currently empty. You can ask me to save notes whenever you like!"
+        return ("There is nothing in your notebook yet. Ask me to save something "
+                "whenever an answer is worth keeping.")
 
     chosen = entries[-config.NOTEBOOK_MAX_SHEET_ENTRIES:]
     try:

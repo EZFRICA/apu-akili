@@ -29,6 +29,8 @@ from apu.ui.live.intents import (
     handle_save_notebook,
     handle_summary_notebook,
     compute_braille,
+    compute_emboss_job,
+    last_explanation,
 )
 
 logger = get_logger(__name__)
@@ -75,10 +77,10 @@ async def call_guard_and_tutor(
     subject = session_context.get("subject") or course.get("subject") or config.EDU_DEFAULT_SUBJECT
     agent_id = dll_state.get("agent_id")
 
-    previous_answer = next(
-        (m["content"] for m in reversed(history) if m.get("role") == "assistant" and m.get("content")),
-        "",
-    )
+    # Not simply the last thing said: an acknowledgement of an action is not an
+    # explanation, and handing one to the tutor as its own previous answer makes it
+    # continue from "Saved in your notebook" instead of from the lesson.
+    previous_answer = last_explanation(history)
 
     turn_result = await run_turn(
         prompt=user_text,
@@ -128,17 +130,26 @@ async def synthesize_and_send(client_ws: WebSocket, text: str, t_start: float) -
 
 async def push_braille(client_ws: WebSocket, text: str) -> bool:
     """
-    The answer as braille cells. Returns whether any were sent.
+    The answer as braille, both as cells to read on screen and as pages to emboss.
 
     Silence beats a card of empty or apologetic cells: a pupil reading with their fingers
     would take whatever is in it for the answer. The caller uses the return value to avoid
     announcing braille that is not there.
+
+    The emboss job is what braille actually is, rather than a row of cells in a browser:
+    forty cells to a line, twenty-five lines to a page, and the BRF a real embosser is fed.
+    It is best-effort. Cells without a layout are still worth sending, so a front end that
+    only shows cells loses nothing when the layout fails.
     """
     grade_1, grade_2 = compute_braille(text)
     if not grade_1:
         return False
-    await safe_push(client_ws, {"type": "braille_format", "original_text": text,
-                                "braille_g1": grade_1, "braille_g2": grade_2})
+    payload = {"type": "braille_format", "original_text": text,
+               "braille_g1": grade_1, "braille_g2": grade_2}
+    emboss = await asyncio.to_thread(compute_emboss_job, text)
+    if emboss:
+        payload["emboss"] = emboss
+    await safe_push(client_ws, payload)
     return True
 
 
@@ -235,10 +246,10 @@ async def process_turn(
         })
         await safe_push(client_ws, {"type": "assistant_token", "token": ack_text})
 
-        await push_braille(client_ws, ack_text)
+        await push_braille(client_ws, nb_res["content"])
         await synthesize_and_send(client_ws, ack_text, t_start)
         history.append({"role": "user", "content": prompt})
-        history.append({"role": "assistant", "content": ack_text})
+        history.append({"role": "assistant", "content": ack_text, "announcement": True})
         await safe_push(client_ws, {"type": "turn_complete", "status": "approved"})
         return
 
@@ -273,8 +284,7 @@ async def process_turn(
     # 3. Handle Voice Intent: Braille translation
     if is_braille_intent(prompt):
         logger.info("Voice intent: Braille format (student=%s)", student_id)
-        target_text = next((entry["content"] for entry in reversed(history)
-                            if entry.get("role") == "assistant" and entry.get("content")), "")
+        target_text = last_explanation(history)
 
         # What is said out loud has to match what was actually produced: announcing a
         # transcription that liblouis could not make would send a pupil to an empty card.
@@ -285,11 +295,15 @@ async def process_turn(
         else:
             ack = "Braille is not available on this device at the moment."
 
-        await safe_push(client_ws, {"type": "assistant_token", "token": ack})
+        # An acknowledgement, not a lesson. Marked as one so a front end can speak it
+        # without printing it over the explanation the pupil just asked to have embossed,
+        # which is the text the cells beside it actually hold.
+        await safe_push(client_ws, {"type": "assistant_token", "token": ack,
+                                    "announcement": True})
 
         await synthesize_and_send(client_ws, ack, t_start)
         history.append({"role": "user", "content": prompt})
-        history.append({"role": "assistant", "content": ack})
+        history.append({"role": "assistant", "content": ack, "announcement": True})
         await safe_push(client_ws, {"type": "turn_complete", "status": "approved"})
         return
 
@@ -303,7 +317,9 @@ async def process_turn(
         # The last net before the pupil: the turn ends with something they can act on
         # rather than silence, and the trace goes to the log for whoever reads it.
         logger.error("The turn could not be completed: %s", exc, exc_info=True)
-        tutor_reply = "I am experiencing a temporary issue. Could you please repeat your question?"
+        # Said to a child, out loud. "Experiencing a temporary issue" is a status page
+        # talking, not a tutor, and it tells a pupil nothing they can act on.
+        tutor_reply = "Something went wrong on my side just now. Ask me again and I will try."
         guard_action = "error"
         guard_status = "error"
         subject = "error"
