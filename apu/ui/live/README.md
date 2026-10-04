@@ -148,7 +148,19 @@ Start the live server with `uv`:
 uv run python -m apu.ui.live.proxy
 ```
 
-The server starts by default at **http://localhost:8765**. Open this URL in your browser to access the voice interface.
+The server starts by default at **http://localhost:8765**, and it is the only server there
+is. It serves two front ends and the layer under them:
+
+| Address | What |
+|---|---|
+| `/` | this lab's own page: switch between the three engines and compare them |
+| `/presentation/` | the keynote stage, Pocket Akili in 3D ([its README](../presentation/README.md)) |
+| `/shared/` | the websocket client and the microphone both of those run on |
+| `/ws/{model_id}` | the websocket itself, which is where the tutor actually lives |
+
+There is no second command. The stage used to have a static server of its own on port 8767;
+it could serve the page but never make it work, since every key on the device needs this
+socket.
 
 ## Key Files
 
@@ -159,4 +171,10 @@ The server starts by default at **http://localhost:8765**. Open this URL in your
 - [`runner_elevenlabs.py`](./runner_elevenlabs.py): ElevenLabs STS per-turn streaming runner.
 - [`runner_gemini_transcribe.py`](./runner_gemini_transcribe.py): Gemini Live real-time STT runner.
 - [`runner_gemini_live.py`](./runner_gemini_live.py): direct audio-to-audio runner, with the answer held until the guard has ruled.
-- [`static/`](./static): Modular frontend (HTML5, Web Audio API, mic visualizer, Lego components).
+- [`static/`](./static): this lab's own page. Its look and its dashboard, and nothing else:
+  the socket, the microphone and the loudspeaker come from [`../shared/`](../shared).
+- [`../shared/`](../shared): `socket.js` and `audio.js`, the plumbing every front end needs.
+  It lived twice, written separately against this same protocol, and two defects fixed in one
+  copy went on running in the other: the decimation with no low-pass, which folded everything
+  above 8 kHz back into the speech, and the microphone wired to the speakers of the room it
+  was recording.

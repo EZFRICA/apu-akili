@@ -2,11 +2,13 @@
  * app.js - Main Application Orchestrator for APU Live Lab
  */
 
-import { AudioController } from "./audio.js";
+import { AudioPlayback, MicrophoneStream } from "../../shared/audio.js";
 import { BrailleManager } from "./braille.js";
 import { ChatRenderer } from "./chat.js";
 import { PrompterRenderer } from "./prompter.js";
-import { LiveSocket } from "./ws.js";
+import {
+  LiveSocket, SOCKET_CLOSED, SOCKET_FAILED, SOCKET_LOG, SOCKET_OPENED,
+} from "../../shared/socket.js";
 
 class App {
   constructor() {
@@ -33,9 +35,10 @@ class App {
 
     // Sub-components
     this.socket = new LiveSocket();
-    this.audio = new AudioController((pcmChunk) => {
-      this.socket.sendBinary(pcmChunk);
+    this.microphone = new MicrophoneStream({
+      onChunk: (pcmChunk) => this.socket.sendBinary(pcmChunk),
     });
+    this.playback = new AudioPlayback();
     this.braille = new BrailleManager();
     this.chat = new ChatRenderer(this.dom.chatContainer);
     this.prompter = new PrompterRenderer(this.dom.prompterContainer);
@@ -79,7 +82,7 @@ class App {
 
     // 4. Microphone Button
     this.dom.micBtn.addEventListener("click", async () => {
-      if (this.audio.isRecording) {
+      if (this.microphone.isRecording) {
         this.stopListening();
       } else {
         await this.startListening();
@@ -107,19 +110,27 @@ class App {
     }
 
     // 6. WebSocket event handlers
-    this.socket.on("connected", () => {
+    this.socket.on(SOCKET_OPENED, () => {
       this._setStatus("connected", "Connected");
     });
 
-    this.socket.on("disconnected", () => {
+    this.socket.on(SOCKET_CLOSED, () => {
       this._setStatus("disconnected", "Disconnected");
     });
 
-    this.socket.on("error", (err) => {
-      this._setStatus("error", "Error");
+    // This socket failing to open. The server's own "error" message, below, means the
+    // tutor could not answer, which is a different thing and used to arrive here too.
+    this.socket.on(SOCKET_FAILED, (failure) => {
+      this._setStatus("error", "Offline");
+      this._appendLog(failure?.reason || "The live lab is not answering.");
     });
 
-    this.socket.on("log", (msg) => {
+    this.socket.on("error", (data) => {
+      this._setStatus("error", "Error");
+      this._appendLog(data?.message || "The tutor could not answer.");
+    });
+
+    this.socket.on(SOCKET_LOG, (msg) => {
       this._appendLog(msg);
     });
 
@@ -140,7 +151,7 @@ class App {
 
     this.socket.on("audio_response", (data) => {
       if (data.audio) {
-        this.audio.enqueueAudio(data.audio, data.mime || "audio/wav");
+        this.playback.enqueue(data.audio, data.mime || "audio/wav");
       }
       if (data.total_latency_ms && this.dom.hudLatency) {
         this.dom.hudLatency.textContent = `${data.total_latency_ms}ms`;
@@ -192,13 +203,13 @@ class App {
   }
 
   async startListening() {
-    try {
-      this.dom.micBtn.classList.add("active");
-      this._setStatus("listening", "Listening…");
-      this.prompter.setSpeaker("user");
-      await this.audio.startRecording();
-    } catch (err) {
-      console.error("Microphone access error:", err);
+    this.dom.micBtn.classList.add("active");
+    this._setStatus("listening", "Listening…");
+    this.prompter.setSpeaker("user");
+
+    // start() answers rather than throwing: a refused microphone is an answer, and the
+    // try/catch that used to be here left the button lit when the throw came late.
+    if (!(await this.microphone.start())) {
       this._setStatus("error", "Mic blocked");
       this.dom.micBtn.classList.remove("active");
     }
@@ -206,13 +217,18 @@ class App {
 
   stopListening() {
     this.dom.micBtn.classList.remove("active");
-    this.audio.stopRecording();
+    this.microphone.stop();
     this.socket.sendEndOfTurn();
     this._setStatus("thinking", "Processing…");
   }
 
   _connectSocket() {
-    this.socket.connect(this.activeModel, this.activeStudent, this.activeClass);
+    this.socket.configure({
+      model: this.activeModel,
+      student: this.activeStudent,
+      classId: this.activeClass,
+    });
+    this.socket.connect();
   }
 
   _setStatus(state, text) {

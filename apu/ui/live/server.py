@@ -39,6 +39,9 @@ ALLOWED_ORIGINS = {
     origin.strip()
     for origin in os.environ.get(
         "APU_LIVE_ALLOWED_ORIGINS",
+        # This server serves every front end it feeds, so every allowed origin is its own.
+        # A second port was on this list while a separate static server existed for the
+        # keynote stage; that server is gone, and so is the exception it needed.
         "http://localhost:8765,http://127.0.0.1:8765").split(",")
     if origin.strip()
 }
@@ -81,8 +84,40 @@ def _known_student(student_id: str, class_id: str) -> tuple[str, str] | None:
 
 app = FastAPI(title="APU Live Voice Lab")
 
+class FreshStaticFiles(StaticFiles):
+    """
+    Static files a browser is told not to keep.
+
+    StaticFiles sends an etag and a last-modified date and no Cache-Control at all, which
+    leaves a browser free to guess a freshness lifetime from the file's age and serve the
+    file without asking again. Measured: an edited stylesheet kept being served from the
+    browser's own cache while the server held the new one. These two directories exist to
+    be looked at while they are being changed, so nothing here is worth keeping.
+    """
+
+    def is_not_modified(self, response_headers, request_headers) -> bool:
+        return False
+
+    async def get_response(self, path: str, scope):
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-store, must-revalidate"
+        return response
+
+
 # Mount modular static files
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+app.mount("/static", FreshStaticFiles(directory=str(STATIC_DIR)), name="static")
+
+# The plumbing both front ends run on: the socket to this server, and the microphone it
+# carries. It lived twice, written separately against this same protocol, and a defect
+# fixed in one copy went on running in the other.
+SHARED_DIR = Path(__file__).parent.parent / "shared"
+app.mount("/shared", FreshStaticFiles(directory=str(SHARED_DIR)), name="shared")
+
+PRESENTATION_DIR = Path(__file__).parent.parent / "presentation"
+if PRESENTATION_DIR.exists():
+    app.mount("/presentation",
+              FreshStaticFiles(directory=str(PRESENTATION_DIR), html=True),
+              name="presentation")
 
 
 @app.get("/")
