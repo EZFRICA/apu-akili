@@ -165,3 +165,19 @@ def test_every_declared_dependency_is_used():
         if not re.search(rf"^\s*(import|from) ({module})", code, re.MULTILINE):
             unused.append(name)
     assert not unused, f"declared and never imported: {unused}"
+
+
+def test_the_demo_names_each_profile_exactly_as_the_sidebar_shows_it():
+    """
+    A presenter follows DEMO.md with the sidebar open and picks the profile it names. The
+    admin's label was missing its scope, and the other two were rewritten once to drop a dash
+    that is part of what the screen shows: a quotation of the interface is not prose.
+    """
+    from apu.ui import common
+
+    shown = {identity.label for identity in common.available_identities()}
+    named = re.findall(r"Profile \*\*([^*]+)\*\*", (ROOT / "DEMO.md").read_text(encoding="utf-8"))
+    assert named, "DEMO.md names no profile"
+    for label in named:
+        assert label in shown, f"DEMO.md says {label!r}; the sidebar offers {sorted(shown)}"
+
