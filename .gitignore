@@ -45,9 +45,6 @@ cloud_registry/registry/
 commit-*.sh
 commit_changes.sh
 
-# ── Chainlit local uploads ───────────────────────────────────────────────────
-.files/
-
 # ── Not shipped: the measurement and red team harnesses ──────────────────────
 # Tools used to choose models, measure the pipeline and attack the guard. They need several
 # provider keys, cost money to run, and are of no use to someone installing the tutor. Their

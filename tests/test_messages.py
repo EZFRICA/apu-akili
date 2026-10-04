@@ -44,13 +44,12 @@ def test_a_fault_of_ours_is_not_read_out_to_a_child(error, caplog):
 
 @pytest.mark.parametrize("interface", [
     "apu/ui/live/pipeline.py",
-    "apu/ui/chainlit_app.py",
     "apu/ui/live/runner_gemini_live.py",
 ])
 def test_no_interface_puts_a_raw_exception_in_front_of_a_pupil(interface):
     """
     The pattern this forbids is f"...: {error}" in something sent to the pupil. Each of
-    these three sent one before: a transcription error, a save failure, a dead session.
+    these sent one before: a save failure, a dead session.
     """
     source = (REPO_ROOT / interface).read_text(encoding="utf-8")
 
