@@ -3,7 +3,7 @@ How far the read path gets with no network.
 
 Target: apu/runtime/agent.py (planner_node), apu/mmu/dll.py (update_node_content)
 
-Inference goes to the fake Nebius client; everything else (embedding, LanceDB, the
+Inference goes to the fake model client; everything else (embedding, LanceDB, the
 DLL, L1) runs for real with INET sockets blocked.
 """
 
@@ -61,7 +61,7 @@ async def test_generation_is_the_only_remaining_network_dependency(
     akili_paths, no_network, real_local_embedder, fake_llm, monkeypatch
 ):
     """
-    Embeddings and retrieval are local, inference is Nebius. When the endpoint is
+    Embeddings and retrieval are local, inference is remote. When the endpoint is
     unreachable the turn fails at generation, after retrieval, not before it.
     """
     import apu.runtime.agent as agent

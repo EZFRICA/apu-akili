@@ -46,7 +46,7 @@ class NotebookUnavailable(RuntimeError):
     """The model could not produce the key points or the summary."""
 
 
-def _nebius():
+def _llm():
     # Imported on first use, as in apu.runtime.agent: a missing key fails the first save,
     # not the import of the interface.
     from apu.inference import llm
@@ -55,7 +55,7 @@ def _nebius():
 
 async def _ask(call_name: str, prompt: str, temperature: float) -> str:
     """One plain-text call, retried once when the model returns no text (seen live)."""
-    call = getattr(_nebius(), call_name)
+    call = getattr(_llm(), call_name)
     for _ in range(2):
         reply = await asyncio.to_thread(call, [{"role": "user", "content": prompt}], temperature=temperature)
         if reply and reply.strip():

@@ -1,7 +1,7 @@
 """
-The runtime wired to Nebius: model routing, graph shape, import-time behaviour.
+The runtime: model routing, graph shape, import-time behaviour.
 
-Target: apu/runtime/agent.py, apu/inference/nebius_client.py (used, not modified)
+Target: apu/runtime/agent.py, apu/inference/llm.py (used, not modified)
 
 Replaces Akili's test_import_time.py and test_tool_graph.py, which pinned
 llm_provider and the TEU loop, neither of which exists in this port.
@@ -44,10 +44,10 @@ def _run(code, env_overrides):
 
 # ── import-time behaviour ────────────────────────────────────────────────────
 
-def test_importing_the_agent_without_a_nebius_key_succeeds():
+def test_importing_the_agent_without_any_provider_key_succeeds():
     """
-    nebius_client raises at import without a key. The agent imports it lazily, so
-    a missing key fails the first question, not the start of the app.
+    A provider client cannot be built without its key. The agent imports the router
+    lazily, so a missing key fails the first question, not the start of the app.
     """
     proc = _run(
         """
@@ -230,13 +230,14 @@ async def test_an_off_topic_turn_gets_the_guard_reply_and_nothing_else(
 
     assert out["off_topic"] is True
     assert out["messages"][0].content == GENTLE_REPLY
-    assert fake_llm.calls == [], "no Nemotron call for an off-topic turn"
+    assert fake_llm.calls == [], "no model call for an off-topic turn"
     assert stub_embeddings == [], "not even the query was embedded"
     assert (await mmu.load_dll())["nodes"] == before["nodes"]
 
 
 async def test_a_turn_without_a_guard_session_is_refused(akili_paths, no_network, fake_llm):
     import pytest as _pytest
+
     import apu.runtime.agent as agent
 
     state = _state()
@@ -251,6 +252,7 @@ async def test_a_failing_guard_means_no_answer(
 ):
     """Fail closed: a turn the guard could not classify is not answered unguarded."""
     import pytest as _pytest
+
     import apu.runtime.agent as agent
     from apu.guardrails import guard
     from apu.guardrails.guard import GuardUnavailable, TopicalGuard

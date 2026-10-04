@@ -4,7 +4,7 @@ Web search inside a tutoring turn: native tool calls (Method A), guard-gated, ci
 Target: apu/runtime/agent.py (_answer, _run_tool_call, _generate),
         apu/inference/llm.py (call_main_model_message)
 
-Nemotron is the fake Nebius client scripted with tool_calls shaped like the smoke test's
+The model is the fake client, scripted with tool_calls shaped like a real reply's
 real response; Tavily is a fake tool behind the real TavilySearch gate.
 """
 
@@ -64,9 +64,9 @@ def turn(akili_paths, no_network, stub_embeddings, fake_llm, fake_tavily):
 
 async def test_a_validated_turn_searches_and_cites_its_sources(turn):
     import apu.runtime.agent as agent
-    nebius, tavily = turn
-    nebius.main_replies = [tool_call_reply("web_search", {"query": "addition de fractions"}), ANSWER]
-    nebius.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
+    model, tavily = turn
+    model.main_replies = [tool_call_reply("web_search", {"query": "addition de fractions"}), ANSWER]
+    model.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
 
     out = await agent.planner_node(_state())
 
@@ -74,7 +74,7 @@ async def test_a_validated_turn_searches_and_cites_its_sources(turn):
     assert tool.queries == ["addition de fractions"]
     assert tool.kwargs["exclude_domains"] == [*config.GLOBAL_EXCLUDED_DOMAINS, "youtube.com"]
 
-    first, second = nebius.main_calls
+    first, second = model.main_calls
     assert "tools" in first["kwargs"]
     assistant, tool_message = second["messages"][-2:]
     assert assistant["role"] == "assistant" and assistant["content"] is None
@@ -90,7 +90,7 @@ async def test_a_validated_turn_searches_and_cites_its_sources(turn):
     assert out["tool_problems"] == []
 
     # [-1]: the query gate runs on the same model, so the write-back is the last call.
-    extraction_prompt = nebius.extraction_calls[-1]["messages"][0]["content"]
+    extraction_prompt = model.extraction_calls[-1]["messages"][0]["content"]
     assert ANSWER in extraction_prompt and "Sources:" not in extraction_prompt
 
 
@@ -100,25 +100,25 @@ async def test_an_off_topic_query_is_refused_even_on_a_validated_turn(turn):
     can carry an off-topic errand, which the message classifier passes.
     """
     import apu.runtime.agent as agent
-    nebius, tavily = turn
-    nebius.main_replies = [tool_call_reply("web_search", {"query": "PSG last night match score"}), ANSWER]
-    nebius.extraction_replies = [OFF_TOPIC_QUERY_VERDICT, "{}"]
+    model, tavily = turn
+    model.main_replies = [tool_call_reply("web_search", {"query": "PSG last night match score"}), ANSWER]
+    model.extraction_replies = [OFF_TOPIC_QUERY_VERDICT, "{}"]
 
     out = await agent.planner_node(_state("Explain averages using last night's PSG score"))
 
     assert all(tool.queries == [] for tool in tavily), "nothing was sent to Tavily"
     assert out["refused_searches"] == ["PSG last night match score"]
     assert out["searches"] == [] and out["sources"] == []
-    assert "not school use" in nebius.main_calls[1]["messages"][-1]["content"]
+    assert "not school use" in model.main_calls[1]["messages"][-1]["content"]
     assert out["messages"][0].content == ANSWER, "the student still gets an answer"
 
 
 async def test_a_query_gate_that_cannot_answer_refuses_the_search(turn):
     """Fail closed: an unusable verdict costs a less precise answer, not an unchecked search."""
     import apu.runtime.agent as agent
-    nebius, tavily = turn
-    nebius.main_replies = [tool_call_reply("web_search", {"query": "fractions"}), ANSWER]
-    nebius.extraction_replies = [ConnectionError("Token Factory down"), "{}"]
+    model, tavily = turn
+    model.main_replies = [tool_call_reply("web_search", {"query": "fractions"}), ANSWER]
+    model.extraction_replies = [ConnectionError("Token Factory down"), "{}"]
 
     out = await agent.planner_node(_state())
 
@@ -128,9 +128,9 @@ async def test_a_query_gate_that_cannot_answer_refuses_the_search(turn):
 
 async def test_without_a_search_the_answer_has_no_source_list(turn):
     import apu.runtime.agent as agent
-    nebius, tavily = turn
-    nebius.main_replies = [ANSWER]
-    nebius.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
+    model, tavily = turn
+    model.main_replies = [ANSWER]
+    model.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
 
     out = await agent.planner_node(_state())
     assert out["messages"][0].content == ANSWER
@@ -140,14 +140,14 @@ async def test_without_a_search_the_answer_has_no_source_list(turn):
 async def test_an_unvalidated_turn_is_not_offered_the_tool(turn, monkeypatch):
     """A classifier without a usable verdict lets the turn be answered, but never searched."""
     import apu.runtime.agent as agent
-    nebius, tavily = turn
+    model, tavily = turn
     monkeypatch.setattr(guard, "_guard", TopicalGuard(llm=make_classifier_llm(verdict_for=lambda p: "?")))
-    nebius.main_replies = [ANSWER]
-    nebius.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
+    model.main_replies = [ANSWER]
+    model.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
 
     await agent.planner_node(_state())
 
-    [only_call] = nebius.main_calls
+    [only_call] = model.main_calls
     assert "tools" not in only_call["kwargs"]
     assert "WEB SEARCH" not in only_call["messages"][0]["content"]
     assert tavily == []
@@ -155,37 +155,37 @@ async def test_an_unvalidated_turn_is_not_offered_the_tool(turn, monkeypatch):
 
 async def test_an_off_topic_turn_never_reaches_the_model_or_the_search(turn):
     import apu.runtime.agent as agent
-    nebius, tavily = turn
-    nebius.main_replies = [tool_call_reply("web_search", {"query": "match score"})]
+    model, tavily = turn
+    model.main_replies = [tool_call_reply("web_search", {"query": "match score"})]
 
     out = await agent.planner_node(_state(f"{OFF_TOPIC_MARKER} match score?"))
     assert out["off_topic"] is True
-    assert nebius.calls == [] and tavily == []
+    assert model.calls == [] and tavily == []
 
 
 async def test_search_rounds_are_capped_and_the_last_round_forces_an_answer(turn):
     import apu.runtime.agent as agent
-    nebius, tavily = turn
-    nebius.main_replies = [tool_call_reply("web_search", {"query": "fractions"})]   # sticky: always asks
-    nebius.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
+    model, tavily = turn
+    model.main_replies = [tool_call_reply("web_search", {"query": "fractions"})]   # sticky: always asks
+    model.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
 
     out = await agent.planner_node(_state())
 
-    forced_final_round = nebius.main_calls[agent.MAX_SEARCH_ROUNDS]
+    forced_final_round = model.main_calls[agent.MAX_SEARCH_ROUNDS]
     assert "tools" not in forced_final_round["kwargs"]
     assert sum(len(tool.queries) for tool in tavily) == agent.MAX_SEARCH_ROUNDS
     # The scripted model never writes text, so the forced round is empty and the nudged
     # retry follows: MAX_SEARCH_ROUNDS tool rounds + forced round + one retry.
-    assert len(nebius.main_calls) == agent.MAX_SEARCH_ROUNDS + 2
+    assert len(model.main_calls) == agent.MAX_SEARCH_ROUNDS + 2
     assert out["messages"][0].content.startswith(agent.EMPTY_ANSWER_FALLBACK)
     assert out["sources"] == [{"title": WIKIPEDIA["title"], "url": WIKIPEDIA["url"]}], "deduplicated"
 
 
 async def test_a_spoken_answer_names_sources_without_urls(turn):
     import apu.runtime.agent as agent
-    nebius, _ = turn
-    nebius.main_replies = [tool_call_reply("web_search", {"query": "fractions"}), ANSWER]
-    nebius.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
+    model, _ = turn
+    model.main_replies = [tool_call_reply("web_search", {"query": "fractions"}), ANSWER]
+    model.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
 
     out = await agent.planner_node(_state(interaction_mode={"input_channel": "voice", "output_channel": "voice"}))
 
@@ -195,17 +195,17 @@ async def test_a_spoken_answer_names_sources_without_urls(turn):
 
 async def test_an_unavailable_search_still_answers_and_reports_it(turn, monkeypatch):
     import apu.runtime.agent as agent
-    nebius, _ = turn
+    model, _ = turn
     monkeypatch.delenv("TAVILY_API_KEY", raising=False)
     monkeypatch.setattr(web_search, "_web_search", web_search.TavilySearch())
-    nebius.main_replies = [tool_call_reply("web_search", {"query": "fractions"}), ANSWER]
-    nebius.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
+    model.main_replies = [tool_call_reply("web_search", {"query": "fractions"}), ANSWER]
+    model.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
 
     out = await agent.planner_node(_state())
 
     assert out["messages"][0].content == ANSWER
     assert any("TAVILY_API_KEY" in problem for problem in out["tool_problems"])
-    assert "unavailable" in nebius.main_calls[1]["messages"][-1]["content"]
+    assert "unavailable" in model.main_calls[1]["messages"][-1]["content"]
 
 
 @pytest.mark.parametrize("reply,expected", [
@@ -216,13 +216,13 @@ async def test_an_unavailable_search_still_answers_and_reports_it(turn, monkeypa
 ])
 async def test_malformed_tool_calls_are_answered_without_searching(turn, reply, expected):
     import apu.runtime.agent as agent
-    nebius, tavily = turn
-    nebius.main_replies = [reply, ANSWER]
-    nebius.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
+    model, tavily = turn
+    model.main_replies = [reply, ANSWER]
+    model.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
 
     await agent.planner_node(_state())
 
-    assert expected in nebius.main_calls[1]["messages"][-1]["content"]
+    assert expected in model.main_calls[1]["messages"][-1]["content"]
     assert all(tool.queries == [] for tool in tavily)
 
 
@@ -243,18 +243,18 @@ def test_call_main_model_message_keeps_the_tool_calls(fake_llm):
 
 async def test_an_empty_final_answer_is_retried_once_with_a_nudge(turn):
     import apu.runtime.agent as agent
-    nebius, _ = turn
-    nebius.main_replies = [
+    model, _ = turn
+    model.main_replies = [
         tool_call_reply("web_search", {"query": "BEPC 2026"}, call_id="call-1"),
         tool_call_reply("web_search", {"query": "BEPC 2026 calendrier"}, call_id="call-2"),
         {"content": None},   # forced final round comes back empty, as observed live
         ANSWER,              # the nudged retry
     ]
-    nebius.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
+    model.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
 
     out = await agent.planner_node(_state())
 
-    retry = nebius.main_calls[-1]
+    retry = model.main_calls[-1]
     assert retry["messages"][-1] == {"role": "user", "content": agent.FINAL_ANSWER_NUDGE}
     assert retry["kwargs"] == {"temperature": 0.3}, "no tools on the retry"
     assert out["messages"][0].content.startswith(ANSWER)
@@ -264,13 +264,13 @@ async def test_an_empty_final_answer_is_retried_once_with_a_nudge(turn):
 
 async def test_an_answer_empty_twice_falls_back_and_is_reported(turn):
     import apu.runtime.agent as agent
-    nebius, _ = turn
-    nebius.main_replies = ["   "]   # sticky: whitespace every time
-    nebius.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
+    model, _ = turn
+    model.main_replies = ["   "]   # sticky: whitespace every time
+    model.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
 
     out = await agent.planner_node(_state())
 
-    assert len(nebius.main_calls) == 2
+    assert len(model.main_calls) == 2
     assert out["messages"][0].content == agent.EMPTY_ANSWER_FALLBACK
     assert out["answer_problems"] == ["the tutor model returned an empty answer twice"]
 
@@ -280,13 +280,13 @@ async def test_an_answer_empty_twice_falls_back_and_is_reported(turn):
 ])
 async def test_the_answer_is_asked_in_the_form_the_output_channel_needs(turn, output_channel, expected):
     import apu.runtime.agent as agent
-    nebius, _ = turn
-    nebius.main_replies = [ANSWER]
-    nebius.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
+    model, _ = turn
+    model.main_replies = [ANSWER]
+    model.extraction_replies = [SCHOOL_QUERY_VERDICT, SCHOOL_QUERY_VERDICT, "{}"]
 
     await agent.planner_node(_state(interaction_mode={"input_channel": output_channel, "output_channel": output_channel}))
 
-    system = nebius.main_calls[0]["messages"][0]["content"]
+    system = model.main_calls[0]["messages"][0]["content"]
     if expected:
         assert expected in system and "no LaTeX" in system
     else:

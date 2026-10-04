@@ -3,7 +3,7 @@ Extractor JSON parsing against realistic malformed model output.
 
 Target: apu/runtime/agent.py (_update_student_memory), apu/core/extraction.py
 
-Drives the real write-back with the fake Nebius client returning each payload as
+Drives the real write-back with the fake model client returning each payload as
 the extraction model's raw output, and observes which updates land in the DLL.
 """
 

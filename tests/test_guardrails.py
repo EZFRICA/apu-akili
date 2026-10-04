@@ -4,7 +4,7 @@ The topical rail (NeMo Guardrails), per-session counting, escalation, and the se
 Target: apu/guardrails/, apu/tools/web_search.py
 
 Runs the real NeMo Guardrails runtime and the shared Colang config, with a scripted
-classifier model in place of Nemotron.
+classifier model in place of a real one.
 """
 
 import threading

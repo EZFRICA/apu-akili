@@ -144,7 +144,7 @@ def test_selected_entries_are_printed_as_written_with_a_heading_each():
     assert text == "1. math (6eme), full answer\nRule: same denominator\n\n2. math (6eme), excerpt\n5/12"
 
 
-async def test_the_summary_is_written_by_nemotron_super_from_the_selected_entries(fake_llm, no_network):
+async def test_the_summary_is_written_by_the_extraction_model_from_the_selected_entries(fake_llm, no_network):
     fake_llm.extraction_replies = ["Fractions\nAdd over a common denominator."]
     summary = await service.summarize_entries([entry(text="note one"), entry(text="note two")])
 

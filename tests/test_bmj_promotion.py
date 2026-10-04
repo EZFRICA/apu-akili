@@ -3,7 +3,7 @@ Does the BMJ move-to-front actually survive a turn?
 
 Target: apu/mmu/dll.py (search_memory / BMJ), apu/runtime/agent.py (the turn's
 single DLL handle). The vector search is stubbed so the routing is exercised
-independently of LanceDB; inference goes to the fake Nebius client.
+independently of LanceDB; inference goes to the fake model client.
 """
 
 import json

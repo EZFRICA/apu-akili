@@ -91,7 +91,7 @@ def get_client():
     """
     The Gemini client, built on first use.
 
-    Built lazily, like the Nebius client: a device without a Gemini key must still start,
+    Built lazily, like the model clients: a device without a Gemini key must still start,
     run in text and braille, and fail only when someone actually asks for speech.
     """
     global _client

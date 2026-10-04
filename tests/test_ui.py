@@ -4,7 +4,7 @@ The demo interface, run headless with Streamlit's AppTest.
 Target: apu/ui/app.py, apu/ui/views/*.py, apu/ui/common.py
 
 AppTest executes each view in-process, so the storage redirection, the stub embedder, the
-scripted topical guard, the fake Nebius client and the fake registry all apply to it.
+scripted topical guard, the fake model client and the fake registry all apply to it.
 """
 
 import pathlib
@@ -336,7 +336,7 @@ def test_the_page_ships_the_accessibility_patch():
     assert CHAT_LOG_ANCHOR.startswith("<div id=\"apu-chat-log\"")
 
 
-def test_nemotron_latex_delimiters_become_streamlit_math():
+def test_model_latex_delimiters_become_streamlit_math():
     from apu.ui.common import math_for_streamlit
 
     assert math_for_streamlit(r"Let us add \( \frac{1}{4} + \frac{1}{6} \).") == r"Let us add $\frac{1}{4} + \frac{1}{6}$."

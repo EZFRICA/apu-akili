@@ -1,10 +1,10 @@
 """
-Shared fixtures, ported from Akili's characterization suite.
+Shared fixtures for the whole suite.
 
 Invariants this suite maintains:
   * No real API key is required and no INET socket is opened by the code under test.
-  * The Nebius client is replaced by an in-process fake (`fake_llm`), so every
-    test that reaches inference sees exactly which model and parameters were used.
+  * Every model provider's client is replaced by one in-process fake (`fake_llm`), so
+    every test that reaches inference sees exactly which model and parameters were used.
   * Every test gets its own LanceDB directory and its own metadata_links.json.
     The developer's data/ directory is never touched.
   * Vectors are small, hand-written and deterministic unless a test opts into the
@@ -82,9 +82,9 @@ def no_network(monkeypatch):
     return NetworkBlocked
 
 
-# ── fake Nebius Token Factory client ─────────────────────────────────────────
+# ── fake model client, standing in for every provider ────────────────────────
 class FakeToolCall:
-    """Shaped like the OpenAI SDK's tool call, as the smoke test showed Token Factory returns it."""
+    """Shaped like the OpenAI SDK's tool call, which every OpenAI-compatible provider returns."""
 
     def __init__(self, id: str, name: str, arguments: str):
         self.id = id
@@ -97,7 +97,7 @@ class FakeToolCall:
 
 
 def tool_call_reply(name: str, arguments: dict, call_id: str = "call-1") -> dict:
-    """A main-model reply that asks for one tool, with content None as Nemotron returns it."""
+    """A main-model reply that asks for one tool, with content None, as models return it."""
     return {"content": None,
             "tool_calls": [{"id": call_id, "name": name, "arguments": json.dumps(arguments)}]}
 
@@ -169,7 +169,7 @@ def fake_llm(monkeypatch):
 
 # ── topical guard ────────────────────────────────────────────────────────────
 # Every tutoring turn goes through the NeMo Guardrails input rail. Tests run the real rail
-# with a scripted classifier model instead of Nemotron: a message containing
+# with a scripted classifier model instead of a real one: a message containing
 # OFF_TOPIC_MARKER is classified off-topic, everything else school work.
 OFF_TOPIC_MARKER = "[off-topic]"
 WELFARE_MARKER = "[welfare]"
