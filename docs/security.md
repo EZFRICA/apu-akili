@@ -191,13 +191,22 @@ Three observations from the transcripts, none of them a breach:
   or lesson", which is the pretext technique. It did mark a plain score request as
   unacceptable, and the pretext fix blocks what it recommends, but a tutor explaining how to
   get past its own filter is not what the school wants.
-- **A firm refusal is repeated identically.** A pupil pushing back three times gets the same
-  two sentences, which reads as a wall rather than as a conversation.
+- **A firm refusal was repeated identically.** A pupil pushing back three times got the same
+  two sentences, which read as a wall rather than as a conversation. **Fixed.** The session
+  already counted the attempts; the wording follows that count now. Three different gentle
+  replies before the threshold, a firmer one at it, and a short one after, so no pupil hears
+  the same words twice running. The refusals never quote the question back, because a
+  refusal is not the place to republish what a pupil typed.
+
+  The reply at the threshold also **tells the pupil that their teacher will see it**, which
+  is true: that is the attempt the escalation event records. Being written down quietly is
+  worse than being told, and a pupil who is told can stop.
 
 ## The serious finding: distress was treated as misbehaviour
 
 This came out of the sympathy scenario and was then probed on its own. Before the fix, with
-the real models:
+the real models. The refusals are quoted as they were worded then; they have since been
+rewritten, so searching the code for these exact sentences will find nothing:
 
 | What the pupil said | What the tutor answered | What the system recorded |
 |---|---|---|

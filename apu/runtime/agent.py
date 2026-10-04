@@ -63,7 +63,7 @@ FINAL_ANSWER_NUDGE = (
     "Now answer the student directly, using the information above. Do not search again."
 )
 EMPTY_ANSWER_FALLBACK = (
-    "I couldn't put an answer together this time. Could you ask your question again, "
+    "I could not put an answer together this time. Could you ask your question again, "
     "perhaps in other words?"
 )
 

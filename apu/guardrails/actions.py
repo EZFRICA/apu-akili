@@ -22,15 +22,48 @@ from apu.logger import get_logger
 
 logger = get_logger(__name__)
 
-GENTLE_REPLY = (
-    "I'm here to help you with your schoolwork. Try asking me about a lesson, an exercise "
-    "or your revision instead, for example \"Explain fractions to me\" or \"Help me prepare "
-    "for my history test\"."
+# A refusal that does not change is not a conversation, it is a wall, and it was written up
+# as exactly that (docs/security.md: "A firm refusal is repeated identically"). The session
+# already counts the attempts; these use that count, so a pupil who asks a second time is
+# answered as a pupil who asked a second time rather than as a stranger.
+#
+# None of them repeats the question back. What the pupil typed is not echoed into a reply:
+# it is their text, and a refusal is not the place to quote it.
+GENTLE_REPLIES = (
+    "That one is outside what I can do, but schoolwork I am good at. "
+    "What are you working on today?",
+    "Still not something I can help with, I am afraid. "
+    "Give me a lesson or an exercise and we can get going.",
+    "I can tell you would rather talk about something else, and I understand. "
+    "Schoolwork is the only thing I know how to do though. Which subject is giving you trouble?",
 )
+# The first rung, and what callers fall back to when they have no decision to show.
+GENTLE_REPLY = GENTLE_REPLIES[0]
+
+# At the threshold, and only there, an escalation is recorded. The pupil is told so: being
+# quietly written down is worse than being told, and a pupil who knows can stop.
 FIRM_REPLY = (
-    "I can only help with your schoolwork, and this request isn't part of it. Come back "
-    "with a question about your lessons, your exercises or your revision."
+    "I am going to stop here. I can only help with schoolwork, and because we have come "
+    "back to this a few times your teacher will see it. That is not a punishment, it is "
+    "just how this works. Whenever you want a hand with a lesson, I am right here."
 )
+FIRM_AGAIN_REPLY = (
+    "Same answer, I am afraid: schoolwork is all I can do. "
+    "Tell me a subject and you will have my full attention."
+)
+
+
+def off_topic_reply(attempt: int, threshold: int) -> str:
+    """
+    What a pupil hears on their nth off-topic attempt.
+
+    Before the threshold the tone softens rather than repeating; at it, the firm reply that
+    also says an adult will see this; after it, a short version, because a pupil who has
+    already been told does not need the whole sentence again.
+    """
+    if attempt < threshold:
+        return GENTLE_REPLIES[min(attempt, len(GENTLE_REPLIES)) - 1]
+    return FIRM_REPLY if attempt == threshold else FIRM_AGAIN_REPLY
 # A pupil who says they are being hurt, or that they do not want to live, used to receive
 # FIRM_REPLY and have it counted as misbehaviour (measured, see docs/security.md). This is
 # what they receive instead. It does not try to be a counsellor: it points to a person.
@@ -83,9 +116,6 @@ def build_actions(sessions: SessionRegistry, scheduler: DeferredWriteScheduler |
         threshold = session.policy.escalation_threshold
         session.record_turn_outcome(turn_id, TurnOutcome.OFF_TOPIC)
 
-        if attempt < threshold:
-            return GENTLE_REPLY
-
         # Persist the crossing only, once per session: attempts below the threshold are
         # never stored, and attempts after it keep the firmer tone without adding events.
         if attempt == threshold:
@@ -99,7 +129,7 @@ def build_actions(sessions: SessionRegistry, scheduler: DeferredWriteScheduler |
                 triggered_at=datetime.now(UTC),
             )
             submit_escalation_event(event, scheduler)
-        return FIRM_REPLY
+        return off_topic_reply(attempt, threshold)
 
     async def handle_welfare_disclosure(context: dict | None = None) -> str:
         """

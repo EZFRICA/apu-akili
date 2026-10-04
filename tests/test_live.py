@@ -122,7 +122,11 @@ async def test_handle_summary_notebook_empty(tmp_path):
     with patch("apu.notebook.store.NotebookStore", return_value=custom_store):
         summary = await handle_summary_notebook("eleve-aya")
 
-    assert "empty" in summary.lower() or "cahier" in summary.lower()
+    # What the pupil is told, rather than one word they might be told it with: that there
+    # is nothing there, and what to do about it. The wording is allowed to change.
+    assert "nothing" in summary.lower()
+    assert "notebook" in summary.lower()
+    assert "ask me to save" in summary.lower(), "a dead end is not an answer"
 
 
 async def test_handle_summary_notebook_with_entries(tmp_path):
