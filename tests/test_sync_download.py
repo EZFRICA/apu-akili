@@ -158,3 +158,23 @@ def test_sync_manager_does_not_call_list_tables_directly():
                 "use lance_driver.list_table_names(); db.list_tables() returns a "
                 "response model whose __contains__ never matches"
             )
+
+
+async def test_a_failed_import_does_not_leave_the_download_on_the_device(akili_paths, monkeypatch):
+    """
+    The temporary parquet was deleted only after a successful import. A course that failed
+    to import stayed in the cache, and the next failure added another: on a device chosen
+    for its small storage, every bad course quietly took its full size for good.
+    """
+    install_fake_registry(monkeypatch, akili_paths, manifest())
+
+    def broken_import(*args, **kwargs):
+        raise RuntimeError("LanceDB refused the table")
+
+    monkeypatch.setattr(sync_manager, "import_course_parquet", broken_import)
+
+    ok, message = await sync_manager.download_course("6eme", "math")
+
+    assert not ok and "Import into LanceDB failed" in message
+    assert list(pathlib.Path(config.CACHE_DIR).glob("*.parquet")) == [], \
+        "the downloaded file was left in the cache"
