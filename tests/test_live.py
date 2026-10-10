@@ -8,6 +8,7 @@ Target:
 """
 
 import asyncio
+import base64
 import json
 import pathlib
 import sqlite3
@@ -81,6 +82,16 @@ def test_is_braille_intent_english_and_french():
     # Negatives
     assert not is_braille_intent("Speak louder please")
     assert not is_braille_intent("Save to my notebook")
+
+
+def test_a_note_title_is_cut_at_a_word_not_inside_one():
+    """Heard aloud: "a delicious pizza cut int" sounded like a mistake."""
+    from apu.ui.live.intents import note_title
+
+    title = note_title("Let us picture a delicious pizza cut into four equal slices. Then more.")
+    assert title == "Let us picture a delicious pizza cut…"
+    assert note_title("Short answer. Then more.") == "Short answer"
+    assert note_title("") == "Live Note"
 
 
 def test_compute_braille_returns_tuple():
@@ -187,7 +198,7 @@ async def test_call_guard_and_tutor_on_topic():
             guard_outcome="on_topic",
         )
 
-        reply, action, status, subject = await call_guard_and_tutor(
+        reply, action, status, subject, _ = await call_guard_and_tutor(
             student_id="eleve-aya",
             class_id="lycee-cocody:3eA",
             user_text="At what temperature does water boil?",
@@ -211,7 +222,7 @@ async def test_call_guard_and_tutor_off_topic():
             guard_outcome="off_topic",
         )
 
-        reply, action, status, subject = await call_guard_and_tutor(
+        reply, action, status, subject, _ = await call_guard_and_tutor(
             student_id="eleve-aya",
             class_id="lycee-cocody:3eA",
             user_text="Who won the football match?",
@@ -573,6 +584,41 @@ async def test_an_internal_fault_is_not_read_out_to_a_pupil(monkeypatch, akili_p
     assert "database is locked" not in spoken and "sqlite" not in spoken.lower()
     assert "try again" in spoken, "the pupil still hears something they can act on"
     assert [p["status"] for p in ws.pushed if p["type"] == "turn_complete"] == ["error"]
+
+
+async def test_a_picture_is_announced_out_loud_before_the_answer_it_belongs_to(monkeypatch,
+                                                                            akili_paths):
+    """
+    The pupil hears the tutor's waiting sentence while the picture is drawn, then the
+    answer, then sees the picture. The notice has its own message type: sent as an
+    assistant_token it opened the answer's bubble, and the answer was written after it.
+    """
+    from apu.tools.visual import VISUAL_STARTED, Visual
+    from apu.ui.live import pipeline
+
+    picture = Visual(b"\xff\xd8 jpeg", "image/jpeg", "A pizza cut in four.", 12.0)
+
+    async def tutor(student_id, class_id, prompt, history, context, on_progress=None):
+        await on_progress(VISUAL_STARTED, "I am drawing it for you.")
+        return "Here is the pizza.", "pass", "approved", "math", [picture]
+
+    spoken = AsyncMock()
+    monkeypatch.setattr(pipeline, "call_guard_and_tutor", tutor)
+    monkeypatch.setattr(pipeline, "synthesize_and_send", spoken)
+    monkeypatch.setattr(pipeline, "push_braille", AsyncMock(return_value=True))
+
+    ws = _FakeWS()
+    await pipeline.process_turn(ws, "Draw it for me", "session-5", "eleve-aya",
+                                "lycee-cocody:3eA", [], 0.0, {"session_id": "session-5"})
+
+    kinds = [p["type"] for p in ws.pushed]
+    assert kinds == ["visual_pending", "assistant_token", "visual", "turn_complete"]
+    assert ws.pushed[0]["text"] == "I am drawing it for you."
+    assert [call.args[1] for call in spoken.await_args_list] == [
+        "I am drawing it for you.", "Here is the pizza."], "said first, then the answer"
+    sent = ws.pushed[2]
+    assert base64.b64decode(sent["image"]) == picture.data
+    assert (sent["mime"], sent["description"]) == ("image/jpeg", "A pizza cut in four.")
 
 
 FROM_THE_LAB = {"Origin": "http://localhost:8765"}

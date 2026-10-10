@@ -2,6 +2,8 @@
  * prompter.js - Teleprompter layout for real-time speech and subtitles
  */
 
+import { buildVisualFigure, buildVisualPending } from "../../shared/visual.js";
+
 export class PrompterRenderer {
   constructor(containerEl) {
     this.container = containerEl;
@@ -45,10 +47,24 @@ export class PrompterRenderer {
   }
 
   appendBrailleCard(cardElement) {
-    if (this.cardSlot) {
-      this.cardSlot.innerHTML = "";
-      this.cardSlot.appendChild(cardElement);
-    }
+    if (!this.cardSlot) return;
+    // Only the previous cells give way: the picture of the same answer stays beside them.
+    this.cardSlot.querySelectorAll(".braille-card")
+      .forEach((card) => this.cardSlot.removeChild(card));
+    this.cardSlot.appendChild(cardElement);
+  }
+
+  showVisualPending(text) {
+    if (!this.cardSlot) return;
+    this.cardSlot.innerHTML = "";
+    this.cardSlot.appendChild(buildVisualPending(text));
+  }
+
+  showVisual(src, description) {
+    if (!this.cardSlot) return;
+    this.cardSlot.querySelectorAll(".pending")
+      .forEach((card) => this.cardSlot.removeChild(card));
+    this.cardSlot.appendChild(buildVisualFigure(src, description));
   }
 
   endTurn() {

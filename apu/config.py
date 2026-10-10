@@ -42,6 +42,12 @@ QUERY_GATE_MODEL = os.environ.get("APU_QUERY_GATE_MODEL", "gemini-3.1-flash-lite
 GUARD_PROVIDER = os.environ.get("APU_GUARD_PROVIDER", "gemini")
 GUARD_MODEL = os.environ.get("APU_GUARD_MODEL", "gemini-3.5-flash-lite")
 
+# Draws the picture a pupil asks for. Called through the Gemini SDK rather than the OpenAI
+# compatibility endpoint, which returns text only. Measured at 10 to 34 seconds per picture,
+# which is why the pupil is told it is coming before it arrives.
+VISUAL_MODEL = os.environ.get("APU_VISUAL_MODEL", "gemini-nano-banana-2.1")
+VISUAL_TIMEOUT_SECONDS = float(os.environ.get("APU_VISUAL_TIMEOUT_SECONDS", "90"))
+
 # Local embedder, swappable depending on target device. paraphrase-multilingual-MiniLM-L12-v2
 # (384 dim) is the current default, chosen for low-capacity hardware; a beefier machine
 # could use a larger multilingual model without touching any other part of the pipeline.

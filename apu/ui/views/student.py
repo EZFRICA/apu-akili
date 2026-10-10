@@ -1,6 +1,7 @@
 """Student view: the tutor, with the topical guard, web search sources, output modalities and
 the student's notebook with its braille sheets."""
 
+import asyncio
 import os
 import sys
 
@@ -200,6 +201,10 @@ def render_assistant(message: dict, index: int) -> None:
                                mime="text/plain", key=f"brf{index}")
     else:
         st.markdown(common.math_for_streamlit(message.get("written") or message["content"]))
+    for picture in message.get("visuals") or []:
+        # The tutor's description of what it asked to draw is the picture's text alternative,
+        # shown under it rather than hidden in an attribute nobody hears.
+        st.image(picture["data"], caption=picture["description"])
     details = []
     if message.get("searches"):
         details.append("🔎 " + " · ".join(f"“{query}”" for query in message["searches"]))
@@ -392,7 +397,19 @@ if prompt:
     history = [{"role": m["role"], "content": m["content"]} for m in st.session_state.chat]
     previous_answer = next((m["answer"] for m in reversed(st.session_state.chat) if m.get("answer")), "")
     count_before = session.off_topic_count
-    with st.spinner("Akili is thinking (guard, search if needed, answer, memory)…"):
+    with st.status("Akili is thinking (guard, search if needed, answer, memory)…") as thinking:
+
+        async def announce(kind: str, message: str) -> None:
+            """A picture takes several seconds: say so while it is drawn, not after."""
+            thinking.update(label=f"🎨 {message}", expanded=True)
+            if output_channel != "voice":
+                return
+            try:
+                audio = await asyncio.to_thread(voice.synthesize, message)
+                st.audio(audio.data, format=audio.mime_type, autoplay=True)
+            except voice.VoiceUnavailable:
+                common.speak_button(message, key="visual-waiting", autoplay=True)
+
         # The turn itself lives in apu/ui/turn.py, outside the page that shows it.
         result = common.run(turn_service.run_turn(
             prompt,
@@ -406,6 +423,7 @@ if prompt:
             output_channel=output_channel,
             text_display=text_display,
             previous_answer=previous_answer,
+            on_progress=announce,
         ))
 
     st.session_state.chat.append({"role": "user", "content": prompt})
@@ -426,6 +444,8 @@ if prompt:
             "answer": result.answer_text or None,
             "saved": [save["kind"] for save in result.notebook_saves],
             "searches": result.searches,
+            "visuals": [{"data": picture.data, "description": picture.description}
+                        for picture in result.visuals],
             "output_channel": output_channel,
             "duration": result.duration,
             "autoplay": output_channel == "voice",

@@ -211,7 +211,8 @@ async def test_asking_the_tutor_saves_the_key_points_of_its_previous_answer(turn
 
     first, confirmation = turn.main_calls
     condensation = turn.extraction_calls[0]
-    assert [tool["function"]["name"] for tool in first["kwargs"]["tools"]] == ["web_search", "save_to_notebook"]
+    assert [tool["function"]["name"] for tool in first["kwargs"]["tools"]] == [
+        "web_search", "save_to_notebook", "draw_visual"]
     assert "NOTEBOOK:" in first["messages"][0]["content"]
     assert PREVIOUS_ANSWER in condensation["messages"][0]["content"], "the answer is what gets condensed"
     assert KEY_POINTS in confirmation["messages"][-1]["content"], "the tutor can confirm what was kept"

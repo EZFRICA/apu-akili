@@ -378,7 +378,7 @@ def test_nothing_the_server_sends_is_treated_as_markup():
 
 # ── the same rules, run instead of read ──────────────────────────────────────
 
-@pytest.mark.parametrize("suite", ["prompter", "bridge", "audio"])
+@pytest.mark.parametrize("suite", ["prompter", "bridge", "audio", "visual"])
 def test_the_interface_behaves_the_way_it_reads(suite):
     """
     Grepping a file proves a line was typed. These two suites run the real prompter and
@@ -577,10 +577,12 @@ def test_the_prompter_gives_room_back_when_the_cells_are_what_was_asked_for():
     down behind the device on the stage, so the one thing the pupil had asked for was the
     one thing they could not see.
     """
-    assert ".prompter-container.braille-open .prompter-text-window" in STYLES
-    opened = _rule(STYLES, ".prompter-container.braille-open .prompter-text-window {")
+    # The same room is given to a picture, which was pushed behind the device the same way.
+    opened = _rule(STYLES, ".prompter-container.braille-open .prompter-text-window,\n"
+                           ".prompter-container.visual-open .prompter-text-window {")
     assert "max-height" in opened
     assert 'classList.toggle("braille-open"' in PROMPTER, "nothing sets the class otherwise"
+    assert '"visual-open"' in PROMPTER
 
 
 def test_the_lab_puts_the_page_on_the_socket_and_not_only_the_cells():

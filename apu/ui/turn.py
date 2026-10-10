@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from apu import config
 from apu.modality.mode import InteractionMode
 from apu.runtime.agent import build_message_window, create_agent_graph
+from apu.tools.visual import ProgressCallback, Visual
 
 
 @dataclass
@@ -33,6 +34,7 @@ class TurnResult:
     memory_problems: list = field(default_factory=list)
     tool_problems: list = field(default_factory=list)
     answer_problems: list = field(default_factory=list)
+    visuals: list[Visual] = field(default_factory=list)
     duration: float = 0.0
     error: Exception | None = None
 
@@ -59,12 +61,16 @@ async def run_turn(
     output_channel: str = "text",
     text_display: bool = True,
     previous_answer: str = "",
+    on_progress: ProgressCallback | None = None,
 ) -> TurnResult:
     """
     Run one turn through the graph and report it.
 
     `prompt` is what the student said, typed or transcribed: a recording is turned into text
     before this point, so the topical guard classifies the same thing either way.
+
+    `on_progress(kind, message)` is called, possibly awaited, when something slow starts
+    inside the turn: today, a picture being drawn. `message` is written for the student.
     """
     mode = InteractionMode(input_channel, output_channel, text_display_available=text_display)
     state = {
@@ -86,7 +92,8 @@ async def run_turn(
 
     started = time.monotonic()
     try:
-        result = await create_agent_graph().ainvoke(state)
+        result = await create_agent_graph().ainvoke(
+            state, config={"configurable": {"on_progress": on_progress}})
     except Exception as error:  # reported to the student, never raised into the interface
         return TurnResult(content="", duration=time.monotonic() - started, error=error)
 
@@ -108,5 +115,6 @@ async def run_turn(
         memory_problems=result.get("memory_problems") or [],
         tool_problems=result.get("tool_problems") or [],
         answer_problems=result.get("answer_problems") or [],
+        visuals=result.get("visuals") or [],
         duration=duration,
     )

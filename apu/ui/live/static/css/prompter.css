@@ -104,3 +104,9 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
+
+/* In the teleprompter the picture sits under the line being read, at a size a room can see */
+.prompter-card-slot .visual-card {
+  max-width: min(640px, 100%);
+  align-self: center;
+}

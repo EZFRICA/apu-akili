@@ -333,6 +333,13 @@ def test_the_page_ships_the_accessibility_patch():
     # that skipped registration instead left Alt+Q silently dead after the first rerun.
     assert "doc.removeEventListener('keydown', win.__apuKeydown)" in ACCESSIBILITY_SCRIPT
     assert "previous.remove()" in ACCESSIBILITY_SCRIPT
+    # st.image writes alt="0" (measured live), so a drawn picture was announced as "zero".
+    # The caption, the tutor's description, becomes the alt, and only when it is not already:
+    # this runs inside the observer, which must never be fed by its own writes.
+    landmarks = ACCESSIBILITY_SCRIPT.split("function applyLandmarks")[1].split("function install")[0]
+    assert "image.setAttribute('alt', text)" in landmarks
+    assert "image.getAttribute('alt') !== text" in landmarks
+    assert "caption.setAttribute('aria-hidden', 'true')" in landmarks
 
     app = (_pathlib.Path(__file__).resolve().parent.parent / "apu" / "ui" / "app.py").read_text()
     assert "inject_accessibility()" in app, "the patch must run on every page"

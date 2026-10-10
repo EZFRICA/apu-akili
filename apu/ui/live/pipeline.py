@@ -5,6 +5,7 @@ Orchestrates:
   2. Voice intents: notebook save, notebook summary, braille generation.
   3. NeMo Guardrails + Pedagogical Tutor + DLL retrieval + Student profile.
   4. Spoken audio synthesis (TTS) & Braille translation streaming.
+  5. Pictures the pupil asks for: announced while they are drawn, then sent with the answer.
 """
 
 import asyncio
@@ -56,10 +57,11 @@ async def call_guard_and_tutor(
     user_text: str,
     history: list[dict],
     session_context: dict,
-) -> tuple[str, str, str, str]:
+    on_progress=None,
+) -> tuple[str, str, str, str, list]:
     """
     Pass user text through NeMo Guardrails + APU tutor pipeline.
-    Returns: (final_response, guard_action, guard_status, subject)
+    Returns: (final_response, guard_action, guard_status, subject, visuals)
     """
     # Deferred on purpose: importing the tutor graph pulls langgraph and the whole runtime
     # into a process that may only ever serve the page.
@@ -94,6 +96,7 @@ async def call_guard_and_tutor(
         output_channel="voice",
         text_display=True,
         previous_answer=previous_answer,
+        on_progress=on_progress,
     )
 
     if turn_result.failed and turn_result.error:
@@ -103,7 +106,29 @@ async def call_guard_and_tutor(
     guard_action = "block" if turn_result.off_topic else "pass"
     guard_status = "blocked" if turn_result.off_topic else "approved"
 
-    return tutor_reply, guard_action, guard_status, subject
+    return tutor_reply, guard_action, guard_status, subject, turn_result.visuals
+
+
+async def announce_visual(client_ws: WebSocket, message: str, t_start: float) -> None:
+    """
+    A picture is being drawn: shown, then said, before the answer it belongs to.
+
+    Its own message type rather than an assistant_token: a token opens the answer's bubble,
+    and the answer would then be written after this sentence, in the same bubble.
+    """
+    await safe_push(client_ws, {"type": "visual_pending", "text": message})
+    await synthesize_and_send(client_ws, message, t_start)
+
+
+async def push_visuals(client_ws: WebSocket, visuals: list) -> None:
+    """Each picture, inline: no route to fetch it from, so nothing to reach it by afterwards."""
+    for picture in visuals:
+        await safe_push(client_ws, {
+            "type": "visual",
+            "image": base64.b64encode(picture.data).decode("ascii"),
+            "mime": picture.mime_type,
+            "description": picture.description,
+        })
 
 
 async def synthesize_and_send(client_ws: WebSocket, text: str, t_start: float) -> None:
@@ -309,9 +334,14 @@ async def process_turn(
 
     # 4. Standard Pedagogical Turn through NeMo Guardrails + Tutor
     t_pipeline_start = time.perf_counter()
+
+    async def on_progress(kind: str, message: str) -> None:
+        await announce_visual(client_ws, message, t_start)
+
+    visuals: list = []
     try:
-        tutor_reply, guard_action, guard_status, subject = await call_guard_and_tutor(
-            student_id, class_id, prompt, history, session_context
+        tutor_reply, guard_action, guard_status, subject, visuals = await call_guard_and_tutor(
+            student_id, class_id, prompt, history, session_context, on_progress
         )
     except Exception as exc:
         # The last net before the pupil: the turn ends with something they can act on
@@ -336,6 +366,7 @@ async def process_turn(
         "pipeline_ms": pipeline_lat,
     })
 
+    await push_visuals(client_ws, visuals)
     await push_braille(client_ws, tutor_reply)
     await synthesize_and_send(client_ws, tutor_reply, t_start)
 

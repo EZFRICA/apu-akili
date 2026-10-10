@@ -3,6 +3,7 @@
  */
 
 import { AudioPlayback, MicrophoneStream } from "../../shared/audio.js";
+import { visualSource } from "../../shared/visual.js";
 import { BrailleManager } from "./braille.js";
 import { ChatRenderer } from "./chat.js";
 import { PrompterRenderer } from "./prompter.js";
@@ -159,6 +160,20 @@ class App {
       if (data.duration && this.dom.hudAudioDur) {
         this.dom.hudAudioDur.textContent = `${data.duration}s`;
       }
+    });
+
+    // A picture takes several seconds to draw, so the tutor says so before it arrives.
+    this.socket.on("visual_pending", (data) => {
+      this._setStatus("thinking", "Drawing…");
+      this.chat.showVisualPending(data.text);
+      this.prompter.showVisualPending(data.text);
+    });
+
+    this.socket.on("visual", (data) => {
+      const src = visualSource(data);
+      if (!src) return;
+      this.chat.addVisual(src, data.description);
+      this.prompter.showVisual(src, data.description);
     });
 
     this.socket.on("notebook_saved", (data) => {
