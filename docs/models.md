@@ -1,6 +1,6 @@
 # Choosing a model for each role
 
-Seven places in the pipeline call a model, and they ask for different things: a classifier that
+Eight places in the pipeline call a model, and they ask for different things: a classifier that
 must be right about a child in distress, a tutor that must call tools, an embedder that must run
 offline, a voice that must not make a pupil wait. Every figure below comes from a call actually
 made, on 2026-09-19 from a laptop in Europe (speech re-measured 2026-10-04), not from a model
@@ -8,7 +8,8 @@ card. The harness needs several provider keys, so it is not in this repository.
 
 ## What runs now
 
-`apu/inference/llm.py` routes each text role, `apu/modality/voice.py` the speech roles. The
+`apu/inference/llm.py` routes each text role, `apu/modality/voice.py` the speech roles,
+`apu/tools/visual.py` the pictures. The
 guard's model is named twice, in `apu/config.py` and `apu/guardrails/config/config.yml`, and a
 test pins them together.
 
@@ -23,6 +24,7 @@ test pins them together.
 | Speech in | `scribe_v2` | about 1 s | `scribe_v1`, which fails on exactly the same clips |
 | Speech out | `eleven_v4_turbo` | 1.68 s, first audio 0.35 s | `eleven_flash_v2_5` is faster (0.85 s): a choice of voice |
 | Speech out, fallback | `gemini-3.8-flash-lite-tts` | 3.47 s | the fastest Gemini speech model, used if ElevenLabs fails |
+| Pictures | `gemini-nano-banana-2.1` | 15 to 35 s a picture | nothing else measured yet |
 
 **A routing decision holds only for the models it was measured on.** The notebook moved twice:
 off the small model when that model spent 1700 tokens to return 140 characters, then back onto
@@ -171,6 +173,23 @@ whole clip still takes as long as the speech.
 **Gemini Live as the whole conversation** answers the pupil itself, so on its own it would skip
 the guard. The live lab runs it only with its answer held until the guard has ruled; even then
 it answers from its own model, not through the tutor ([decisions.md](./decisions.md)).
+
+## Pictures
+
+Measured 2026-10-07, on real turns asking for a fractions diagram, a 3-4-5 triangle, the
+perimeter of a rectangle and the water cycle, in English and French.
+
+- **Through the Gemini SDK, not the router.** The OpenAI compatibility endpoint answers an image
+  model with `Unhandled generated data mime type: image/jpeg`, and its images route returns 404.
+  So pictures are, with speech, the second place a provider SDK is called directly.
+- **TEXT and IMAGE are both requested.** Asked for `["TEXT"]`, the model draws anyway; asked for
+  `["IMAGE"]`, it returns a picture with no word. With both, the text answers the question.
+- **Where a turn's time goes**, three timed runs: the guard 0.7 s, the tutor's call that writes
+  the request and the waiting sentence about 6 s, the picture gate 0.8 s, the picture 15 to 18 s
+  (33 to 35 s in two other runs), the answer 3 to 4 s. The whole turn: 26 to 31 s. The pupil
+  hears that the picture is coming 7 to 9 s in, 10 to 12 s once the sentence is spoken in the lab.
+- **Every label and value was right** in the pictures checked. A pre-release version of the model
+  labelled each quarter of a pizza "2/4", so a picture is still worth a teacher's glance.
 
 ## What this also taught
 

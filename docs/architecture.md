@@ -20,6 +20,8 @@ what the pupil said (typed, or a recording transcribed first)
      save_to_notebook→ writes to the pupil's notebook, which this turn can never read back
                        (a revision sheet the pupil asks for is the one path out, and it
                         goes to the write-back model, bounded, never to this one)
+     draw_visual     → only with a screen; what to draw is classified first, the pupil is
+                       told it is coming while it is drawn, and the picture is never stored
         │
         ▼
   the answer is rendered for the channel (text, spoken, braille) with its sources
@@ -37,14 +39,14 @@ Where each piece lives:
 | L2 | the DLL: a doubly linked list of memory blocks, persisted as JSON, LRU page-out | `apu/mmu/dll.py` |
 | L3 | LanceDB: downloaded courses and archived pupil memory | `apu/storage/lance_driver.py` |
 | Guard | NeMo Guardrails rail, per-class policy, escalations | `apu/guardrails/` |
-| Tools | web search and the notebook, both gated on the turn's proof | `apu/tools/` |
+| Tools | web search, the notebook and pictures, all gated on the turn's proof | `apu/tools/` |
 | Modality | interaction modes, citations, braille, speech | `apu/modality/` |
 | Models | one OpenAI-compatible client per provider, one model per role | `apu/inference/llm.py` |
 | Courses | the cloud registry download, checked against the manifest's hash | `apu/sync/` |
 | Streamlit | the pupil, teacher, admin and demo pages, and the turn they share | `apu/ui/app.py`, `apu/ui/turn.py` |
 | Live voice lab | the websocket every voice front end talks to, and its own page | `apu/ui/live/` |
 | Keynote stage | Pocket Akili in 3D, served by the lab | `apu/ui/presentation/` |
-| Shared layer | the socket and the microphone both voice front ends run on | `apu/ui/shared/` |
+| Shared layer | the socket, the microphone and the picture card both voice front ends run on | `apu/ui/shared/` |
 | Teacher API | escalations and classes, authorized from the registries | `apu/api/` |
 
 Two things kept out of the tutoring memory on purpose: escalation events

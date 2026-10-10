@@ -27,6 +27,12 @@ tutor. Anything else goes through the full turn, `apu.ui.turn.run_turn`: the gua
 memory, the tutor and its tools, then speech (ElevenLabs, or Gemini as fallback) and braille
 (liblouis), from `pipeline.py`.
 
+A pupil who asks to see something gets a picture. It takes 15 to 35 s, so while it is drawn the
+socket sends `visual_pending` with the tutor's own waiting sentence, which is shown and spoken
+at once. Then come the answer (`assistant_token`) and the picture (`visual`: base64, its type, and
+the tutor's description as its alt). The notice is not an `assistant_token`: that would open the
+answer's bubble, and the answer would be written after the notice, in the same bubble.
+
 ## The three engines
 
 | Engine | Runner | How it works |
@@ -79,5 +85,5 @@ check deciding whether a pupil is answered must happen before the model speaks.
 `server.py` is the FastAPI app (routes, the roster, origin checks), `proxy.py` its entry point,
 `pipeline.py` runs a turn and pushes its results, `intents.py` the voice intents and the braille
 layout, and the three `runner_*.py` files the engines above. `static/` is this lab's own page:
-its look and its dashboard, while the socket, the microphone and the loudspeaker come from
-`../shared/`, where both pages share one copy.
+its look and its dashboard, while the socket, the microphone, the loudspeaker and the picture
+card come from `../shared/`, where both pages share one copy.
