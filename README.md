@@ -30,6 +30,7 @@ Each role was measured against candidates from four providers, in that exact rol
 | Topical guard | `gemini-3.5-flash-lite` | holds all 69 attacks of the red team corpus, twice, in 0.66 s |
 | Memory write-back | `gemini-3.5-flash-lite` | same result as before, at a fifth of the latency |
 | Search-query gate | `gemini-3.1-flash-lite` | 10/10, without blocking legitimate PE queries |
+| Pictures | `gemini-nano-banana-2.1` | labels and values right in every picture checked; 15 to 35 s each |
 | Speech out | `eleven_v4_turbo` | 1.68 s, first audio in 0.35 s, read back without an error |
 | Speech in | `scribe_v2` | about 1 s; `scribe_v1` fails on exactly the same clips |
 | Embeddings | local MiniLM (ONNX) | 4 ms per query, and no network needed |
@@ -158,8 +159,8 @@ Every turn goes through one NeMo Guardrails input rail first (`apu/guardrails/`)
 off-topic, or a disclosure of distress. Off-topic replies change with each attempt; at the
 class's threshold (`registries/class_policies.json`) one escalation is recorded, and the pupil is
 told their teacher will see it. Distress is answered with care, never counted, never stored. If
-the guard cannot rule, the turn is not answered. Web search runs only on validated turns, and the
-query is classified on its own first. Attacks, findings and fixes:
+the guard cannot rule, the turn is not answered. Web search and pictures run only on validated
+turns, and what is to be searched or drawn is classified on its own first. Attacks, findings and fixes:
 [docs/security.md](./docs/security.md).
 
 Escalations are stored apart from the tutoring memory and clustered per class (HDBSCAN on local
@@ -186,7 +187,7 @@ curl -H "X-Requester-Id: admin-cocody" http://127.0.0.1:8000/establishments/lyce
 > (`tests/test_api.py`). The pupil side has no equivalent yet. Both must close before a real
 > class uses this.
 
-## Voice, braille and the notebook
+## Voice, braille, pictures and the notebook
 
 - **Voice.** The recording is transcribed, the transcript goes through the guard like typed
   text, and the tutor writes every answer. A spoken turn takes 8.6 s. Speech out falls back from
@@ -194,6 +195,10 @@ curl -H "X-Requester-Id: admin-cocody" http://127.0.0.1:8000/establishments/lyce
   browser's own voice.
 - **Braille.** `apu/modality/braille/` translates with liblouis, grade 1 or 2, English or French,
   to Unicode braille or BRF, and lays the page out the way an embosser prints it.
+- **Pictures.** A pupil who asks to see something ("draw it", "fais-moi un schéma") gets a
+  picture drawn for them (`apu/tools/visual.py`), on a screen only: braille and a voice without
+  a screen get it described in words. Drawing takes 15 to 35 s, so the tutor first says, in the
+  pupil's language, that it is coming; that sentence reaches the pupil 7 to 12 s into the turn.
 - **Notebook.** The pupil keeps a full answer, its key points or an excerpt (`apu/notebook/`), by
   button or by asking. **The tutor never reads it.** A braille revision sheet made from entries
   the pupil picks is the only path from the notebook to a model.

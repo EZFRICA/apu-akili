@@ -2,7 +2,7 @@
    APU Akili · Steve Jobs Keynote Product Presentation Edition
    - Background: linear-gradient(135deg, #D54D48 0%, #D58F48 50%, #D54885 100%)
    - 94% Screen Rounded Rectangle (Radius 48px+ / ElevenLabs Capsule)
-   - Video camera layer with 40% opacity filter
+   - Video camera layer at 65% opacity
    - Continuous Stream Teleprompter + Braille Space
    - Base 3D Tactile Equipment + Proximity Hand Cursor + Shockwave Clicks
    - Lateral Menus (Left Parts Drawer & Right Voice Specs Card)
@@ -369,7 +369,7 @@ body.tactile-hand-cursor *:active {
   flex-direction: column;
 }
 
-/* Video Layer with 80% Opacity Filter */
+/* Video Layer at 65% opacity */
 .camera-video-layer {
   position: absolute;
   inset: 0;
@@ -377,8 +377,8 @@ body.tactile-hand-cursor *:active {
   height: 100%;
   object-fit: cover;
   transform: scaleX(-1);
-  opacity: 0.8 !important;
-  filter: opacity(80%) !important;
+  opacity: 0.65 !important;
+  filter: opacity(65%) !important;
   z-index: 1;
 }
 
@@ -492,7 +492,8 @@ body.tactile-hand-cursor *:active {
 /* The braille card is open, so the cells are what was asked for. The prompter keeps enough
    to say which explanation they hold and gives the rest of the band back: at full height
    over a long answer it pushed the page of cells behind the device on the stage. */
-.prompter-container.braille-open .prompter-text-window {
+.prompter-container.braille-open .prompter-text-window,
+.prompter-container.visual-open .prompter-text-window {
   max-height: 72px;
 }
 
@@ -547,6 +548,64 @@ body.tactile-hand-cursor *:active {
 @keyframes slideDownFade {
   from { opacity: 0; transform: translateY(-8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── A picture the tutor drew ───────────────────────────────────────────────
+   It shares the card slot with the braille page. Sized to the band above the device: tall
+   enough to read its labels from the back of a room, short enough to leave the device in
+   view. The description under it is the tutor's, and a screen reader hears it as the alt. */
+.visual-card.stage {
+  margin: 0;
+  max-width: min(720px, 100%);
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(10, 12, 20, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.visual-card.stage img {
+  max-width: 100%;
+  max-height: 260px;
+  width: auto;
+  height: auto;
+  border-radius: 8px;
+}
+
+/* Two lines on stage: the whole description is the picture's alt, and the room above the
+   device is not enough for a paragraph under the picture as well. */
+.visual-card.stage figcaption {
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.78);
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.visual-card.stage.pending {
+  flex-direction: row;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.visual-card.stage .visual-spinner {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-top-color: #ffffff;
+  animation: visualSpin 0.9s linear infinite;
+}
+
+@keyframes visualSpin {
+  to { transform: rotate(360deg); }
 }
 
 /* Accessible Keynote Braille Card */

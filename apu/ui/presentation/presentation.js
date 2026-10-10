@@ -6,6 +6,7 @@ import { CameraController } from "./camera.js";
 import { PrompterController } from "./prompter.js";
 import { KeynoteHardware3D, HARDWARE_PARTS_INFO } from "./hardware3d.js";
 import { KeynoteBridge } from "./bridge.js";
+import { visualSource } from "../shared/visual.js";
 
 class KeynoteApp {
   constructor() {
@@ -379,6 +380,17 @@ class KeynoteApp {
         // Cache braille data without forced auto-popup (shown only on Braille button click)
         this.prompter.setBrailleData(payload);
         break;
+
+      case "visual_pending":
+        this._setStatus("thinking", "Drawing a picture…");
+        this.prompter.showVisualPending(payload.text);
+        break;
+
+      case "visual": {
+        const src = visualSource(payload);
+        if (src) this.prompter.showVisual(src, payload.description);
+        break;
+      }
 
       case "turn_complete":
         this.hardware3d.setButtonInUse("btn_ptt", false);

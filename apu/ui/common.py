@@ -222,6 +222,19 @@ function applyLandmarks() {
     chat.setAttribute('aria-relevant', 'additions text');
     chat.setAttribute('aria-label', 'Conversation with the tutor');
   }
+
+  // st.image writes alt="0" (measured, Streamlit 1.64), so a screen reader announced a
+  // picture the tutor drew as "zero". Its caption is the tutor's description of it: that
+  // becomes the alt, and the caption is hidden from the reader so it is not heard twice.
+  doc.querySelectorAll('[data-testid="stImage"]').forEach((frame) => {
+    const image = frame.querySelector('img');
+    const caption = frame.querySelector('[data-testid="stImageCaption"]');
+    const text = caption ? caption.innerText.trim() : '';
+    if (image && text && image.getAttribute('alt') !== text) {
+      image.setAttribute('alt', text);
+      caption.setAttribute('aria-hidden', 'true');
+    }
+  });
 }
 
 // Once per run of this iframe, because these hold handlers from this realm.

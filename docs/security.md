@@ -13,8 +13,8 @@ message. The guard it replaced held the same 69 in 1.58 s ([models.md](./models.
 A turn passes three gates:
 
 1. **The message classifier** (`apu/guardrails/`): school use, off-topic, or welfare.
-2. **The search-query gate** (`classify_search_query`): the query the tutor wants to send,
-   classified as a request of its own.
+2. **The second gate** (`classify_search_query`, `classify_visual_request`): the query the
+   tutor wants to send, or the picture it wants to draw, classified as a request of its own.
 3. **The turn proof** (`ValidatedTurn`): a tool runs only for the turn the guard validated, and
    the proof cannot be minted elsewhere.
 
@@ -121,6 +121,15 @@ bind refuses the machine's own wifi address, and a foreign origin gets HTTP 403.
 with no header is covered by unit tests on fabricated addresses, because this machine's firewall
 refuses inbound connections before the server sees them.
 
+## Pictures
+
+A picture is drawn only on a validated turn, after its description passes the second gate, on
+the same model as a search query. Measured live on 10 descriptions, **10/10** in 0.77 s median:
+an offside diagram for PE and a portrait of Marie Curie pass; a footballer's goal, a game
+character, a meme, a pop star and a classmate named in full are refused. A refused picture is
+neither drawn nor announced. The picture is never written to disk: it travels with the turn,
+inline in the socket message, and the interface drops it with the conversation.
+
 ## Known limits
 
 - **The off-topic counter is per session**: reconnecting restarts it. Persisting it per pupil
@@ -129,6 +138,7 @@ refuses inbound connections before the server sees them.
 - **No input size limit**: a 47 000-character message was classified and answered.
 - **One model call**: a class can raise its threshold or exclude domains, not make the
   classifier stricter.
+- **The picture gate has 10 cases, not a corpus**: it has not been red-teamed like the guard.
 - **Authentication is a stub**, so none of this stops someone choosing another pupil's identity
   in the demo interface ([decisions.md](./decisions.md)).
 
@@ -138,4 +148,5 @@ refuses inbound connections before the server sees them.
 |---|---|---:|
 | Message classifier | every turn | 0.66 to 1.1 s |
 | Search-query gate | only when the tutor searches | 0.73 s |
+| Picture gate | only when the tutor draws | 0.77 s |
 | Turn proof | every tool call | none, a check in process |

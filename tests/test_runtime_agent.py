@@ -82,21 +82,24 @@ def test_a_role_fails_loudly_on_first_use_without_its_provider_key():
     assert "RAISED:" in proc.stdout and "is not set" in proc.stdout, proc.stdout + proc.stderr
 
 
-# Speech is the one place a provider SDK is used directly: the voice module for speech in
-# and out, and the live runners, which hold a streaming socket open. Everything else, the
-# tutor, the guard, the write-back and the query gate, goes through apu/inference/llm.py.
-SPEECH_PATHS = {
+# Speech and pictures are the two places a provider SDK is used directly: the voice module
+# for speech in and out, the live runners, which hold a streaming socket open, and the
+# picture tool, because the OpenAI compatibility endpoint answers an image model with
+# "Unhandled generated data mime type: image/jpeg" (measured). Everything else, the tutor,
+# the guard, the write-back and the query gate, goes through apu/inference/llm.py.
+DIRECT_SDK_PATHS = {
     "apu/modality/voice.py",
+    "apu/tools/visual.py",
     "apu/ui/live/runner_elevenlabs.py",
     "apu/ui/live/runner_gemini_transcribe.py",
     "apu/ui/live/runner_gemini_live.py",   # kept out of the repository, present on some machines
 }
 
 
-def test_only_the_speech_path_may_use_another_provider(akili_paths):
+def test_only_speech_and_pictures_may_use_a_provider_sdk(akili_paths):
     """
-    Every inference call goes through apu/inference/llm.py, with one deliberate exception:
-    the speech path talks to its provider's SDK directly. Nothing else may.
+    Every inference call goes through apu/inference/llm.py, with two deliberate exceptions:
+    speech and pictures talk to their provider's SDK directly. Nothing else may.
     """
     forbidden = re.compile(
         r"^\s*(from|import)\s+(ollama|langchain_ollama|langchain_google_genai|"
@@ -109,9 +112,9 @@ def test_only_the_speech_path_may_use_another_provider(akili_paths):
         if forbidden.search(p.read_text(encoding="utf-8"))
     ]
     assert "apu/modality/voice.py" in offenders, "the voice module is the reference case"
-    assert set(offenders) <= SPEECH_PATHS, (
-        "a module outside the speech path imports a provider SDK directly: "
-        f"{sorted(set(offenders) - SPEECH_PATHS)}")
+    assert set(offenders) <= DIRECT_SDK_PATHS, (
+        "a module outside speech and pictures imports a provider SDK directly: "
+        f"{sorted(set(offenders) - DIRECT_SDK_PATHS)}")
 
 
 # ── model routing ────────────────────────────────────────────────────────────
@@ -131,8 +134,9 @@ async def test_a_turn_sends_the_answer_to_super_and_the_extraction_to_nano(
     ], "answer first, then the write-back, each on its own model"
     kwargs = fake_llm.main_calls[0]["kwargs"]
     assert kwargs["temperature"] == 0.7
-    assert [tool["function"]["name"] for tool in kwargs["tools"]] == ["web_search", "save_to_notebook"], (
-        "the guard validated this turn, so web search and notebook saving are offered"
+    assert [tool["function"]["name"] for tool in kwargs["tools"]] == [
+        "web_search", "save_to_notebook", "draw_visual"], (
+        "the guard validated this turn and the student has a screen, so all three are offered"
     )
 
 

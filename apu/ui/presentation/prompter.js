@@ -4,6 +4,8 @@
  * Braille is displayed on-demand when the Braille button is clicked, adhering to accessibility standards.
  */
 
+import { buildVisualFigure, buildVisualPending } from "../shared/visual.js";
+
 // Client-side Grade 1 Braille translator for instant tactile representation
 const BRAILLE_G1_MAP = {
   a: "⠁", b: "⠃", c: "⠉", d: "⠙", e: "⠑", f: "⠋", g: "⠛", h: "⠓", i: "⠊", j: "⠚",
@@ -49,6 +51,11 @@ export class PrompterController {
     // Cached braille data for active turn
     this.cachedBraille = null;
     this.brailleVisible = false;
+
+    // The picture of the current answer, or the tutor's words while it is drawn. It shares
+    // the card slot with the braille page, which wins while it is open.
+    this.visual = null;
+    this.visualPending = null;
   }
 
   setSpeaker(speaker) {
@@ -101,6 +108,12 @@ export class PrompterController {
         this.textEl.textContent = "";
         this.textEl.classList.remove("empty");
       }
+      // A new answer: the previous picture is not about it, and the wait is over.
+      if (this.visual || this.visualPending) {
+        this.visual = null;
+        this.visualPending = null;
+        this._renderVisual();
+      }
     }
 
     this.activeText += token;
@@ -131,11 +144,10 @@ export class PrompterController {
   toggleBraille(forceState) {
     this.brailleVisible = forceState !== undefined ? forceState : !this.brailleVisible;
     this.container?.classList.toggle("braille-open", this.brailleVisible);
+    // Whichever card is open has the room; the picture keeps its place for when this closes.
+    this._renderVisual();
 
-    if (!this.brailleVisible) {
-      if (this.cardSlot) this.cardSlot.innerHTML = "";
-      return false;
-    }
+    if (!this.brailleVisible) return false;
 
     this._renderBrailleCard();
     return true;
@@ -315,6 +327,35 @@ export class PrompterController {
     this._announce(message);
   }
 
+  /** A picture is on its way: the tutor's sentence is spoken, shown, and announced. */
+  showVisualPending(message) {
+    this.visual = null;
+    this.visualPending = message || "Drawing…";
+    this._renderVisual();
+    this._announce(this.visualPending);
+  }
+
+  showVisual(src, description) {
+    this.visual = { src, description };
+    this.visualPending = null;
+    this._renderVisual();
+  }
+
+  _renderVisual() {
+    // The same room the braille page is given, for the same reason: at full height the
+    // prompter pushed the picture behind the device (seen live).
+    this.container?.classList.toggle(
+      "visual-open", !this.brailleVisible && Boolean(this.visual || this.visualPending));
+    if (!this.cardSlot || this.brailleVisible) return;
+    this.cardSlot.innerHTML = "";
+    if (this.visual) {
+      this.cardSlot.appendChild(
+        buildVisualFigure(this.visual.src, this.visual.description, "visual-card stage"));
+    } else if (this.visualPending) {
+      this.cardSlot.appendChild(buildVisualPending(this.visualPending, "visual-card stage pending"));
+    }
+  }
+
   endTurn() {
     // The answer stays readable after the voice stops; the next one replaces it.
     this.streamingReply = false;
@@ -360,6 +401,8 @@ export class PrompterController {
     this.activeText = "";
     this.cachedBraille = null;
     this.brailleVisible = false;
+    this.visual = null;
+    this.visualPending = null;
     if (this.textEl) {
       this.textEl.textContent = "Speak or press a tactile button on Pocket Akili below…";
       this.textEl.classList.add("empty");

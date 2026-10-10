@@ -48,6 +48,17 @@ Streamlit's class names, which change between versions.
   what it looks for. The test pins the patch, not Streamlit.
 - **Voice input is not testable in AppTest**, which has no `audio_input`; it is checked live only.
 
+## Pictures
+
+A picture is drawn only for a pupil who can see it. In braille, or by voice without a screen,
+the tutor is told to describe instead: found live, asked to "draw a right triangle" on a braille
+display, it drew one out of slashes and pipes, a column of meaningless cells under the fingers.
+The tutor's description of what it drew is the picture's text alternative everywhere. On the
+Streamlit page `st.image` writes `alt="0"`, read aloud as "zero", so the patch above copies the
+caption into the alt and hides the caption from the reader. While a picture is drawn, the
+waiting sentence is spoken in voice modes, and is a `role="status"` card in the lab and on the
+stage, where the announcer reads it once.
+
 ## The keynote stage
 
 Built later, it has its own account in

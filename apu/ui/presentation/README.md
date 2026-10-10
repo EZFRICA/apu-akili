@@ -23,6 +23,10 @@ that origin to `APU_LIVE_ALLOWED_ORIGINS`.
   same code that writes the `.BRF` file, so preview and file cannot disagree. It embosses the
   last lesson, never an acknowledgement, and with nothing yet to emboss it says so instead of
   inventing cells.
+- **A picture** the pupil asks for ("draw it for me") appears under the teleprompter, with two
+  lines of the tutor's description; the whole description is its alt. While it is drawn, the
+  tutor's waiting sentence takes its place, spoken and announced. The braille card covers it
+  while open, and the next answer takes it away.
 - **The device**, in Three.js, settles its floating motion as a pointer approaches. Each key is
   aimed at through an invisible disc wider than the key, and where two discs overlap the press
   goes to the nearest key's centre.
@@ -86,6 +90,8 @@ This stage is for pupils who may not see it at all.
   in a text field or with a modifier held.
 - Every control shows a focus ring; the header's icon buttons are 40 pixels.
   `prefers-reduced-motion` stops the floating, pulsing and glowing, inside the WebGL canvas too.
+- A picture's alt is the tutor's description of it, and its visible caption is hidden from the
+  reader, so the description is heard once.
 - The braille cells sit at 13:1 contrast, above the strictest 7:1 threshold; the rest of the
   card is quieter, so the cells are what stands out.
 
@@ -95,6 +101,7 @@ of height the braille card gives its room back first.
 ## Files
 
 `index.html` and `styles.css` are the stage, `presentation.js` turns events into what is on
-screen, `prompter.js` holds the teleprompter and the braille card, `hardware3d.js` the device
+screen, `prompter.js` holds the teleprompter, the braille card and the picture, `hardware3d.js` the device
 and its presses, `camera.js` the webcam and its stand-in, and `bridge.js` what each key means.
-The socket and the microphone are in `apu/ui/shared/`, shared with the lab's own page.
+The socket, the microphone and the picture card are in `apu/ui/shared/`, shared with the lab's
+own page.

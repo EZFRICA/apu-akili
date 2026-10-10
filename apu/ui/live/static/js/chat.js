@@ -2,6 +2,8 @@
  * chat.js - Discussion canvas message stream renderer
  */
 
+import { buildVisualFigure, buildVisualPending } from "../../shared/visual.js";
+
 export class ChatRenderer {
   // A pupil who has just said something about their own life is not "blocked": the guard
   // separates the two outcomes, and so does what they are shown.
@@ -18,6 +20,7 @@ export class ChatRenderer {
   constructor(containerEl) {
     this.container = containerEl;
     this.currentAssistantBubble = null;
+    this.pendingVisual = null;
   }
 
   addUserMessage(text) {
@@ -79,8 +82,31 @@ export class ChatRenderer {
     this._scrollToBottom();
   }
 
+  /** A picture is being drawn: said in the tutor's words, where the picture will be. */
+  showVisualPending(text) {
+    this._dropPendingVisual();
+    this.pendingVisual = buildVisualPending(text);
+    this.container.appendChild(this.pendingVisual);
+    this._scrollToBottom();
+  }
+
+  /** The picture, after the answer that walks through it. */
+  addVisual(src, description) {
+    this._dropPendingVisual();
+    this.container.appendChild(buildVisualFigure(src, description));
+    this._scrollToBottom();
+  }
+
   endTurn() {
     this.currentAssistantBubble = null;
+    // A picture that could not be drawn leaves no spinner behind: the answer says why.
+    this._dropPendingVisual();
+  }
+
+  _dropPendingVisual() {
+    if (!this.pendingVisual) return;
+    this.container.removeChild(this.pendingVisual);
+    this.pendingVisual = null;
   }
 
   _scrollToBottom() {

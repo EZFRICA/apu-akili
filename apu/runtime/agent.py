@@ -14,6 +14,9 @@ Ported from Akili (app_local/runtime/agent.py). What changed in the port, and wh
     form the output channel needs (apu.modality.citations).
   - save_to_notebook is offered and gated the same way: it writes to the student notebook
     (apu.notebook) when the student asks. The notebook is never read into the prompt.
+  - draw_visual is offered and gated the same way, and only when the student has a screen:
+    it draws the picture the student asks for (apu.tools.visual), and tells them it is
+    coming through the caller's on_progress while it is drawn.
   - Akili's other TEU tools (calculator, course search, chapter loader) are not ported.
   - Messages are converted from LangChain message objects to the OpenAI dict format at the
     boundary. The graph state still carries LangChain messages because the add_messages
@@ -30,6 +33,7 @@ from dataclasses import dataclass, field
 from typing import Annotated, TypedDict
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, StateGraph
 from langgraph.graph.message import add_messages
 
@@ -46,11 +50,12 @@ from apu.modality.citations import Source, render_answer
 from apu.modality.mode import InputChannel, InteractionMode, OutputChannel
 from apu.runtime.prompts import load_registry_prompts
 from apu.tools import notebook as notebook_tool
+from apu.tools import visual as visual_tool
 from apu.tools import web_search
 
 logger = get_logger(__name__)
 
-# Two tool rounds (searches or notebook saves) are enough to refine a query once; the round
+# Two tool rounds (searches, notebook saves or a picture) are enough to refine a query once; the round
 # after the last one is sent without tools, which forces a written answer instead of an
 # unbounded loop.
 MAX_SEARCH_ROUNDS = 2
@@ -163,6 +168,14 @@ class _TurnTools:
     refused_searches: list[str] = field(default_factory=list)
     tool_problems: list[str] = field(default_factory=list)
     notebook_saves: list[dict] = field(default_factory=list)
+    # A picture is offered only when the student can see it.
+    offer_visual: bool = False
+    on_progress: visual_tool.ProgressCallback | None = None
+    visuals: list[visual_tool.Visual] = field(default_factory=list)
+
+    def definitions(self) -> list[dict]:
+        offered = [web_search.WEB_SEARCH_TOOL, notebook_tool.SAVE_TO_NOTEBOOK_TOOL]
+        return offered + ([visual_tool.DRAW_VISUAL_TOOL] if self.offer_visual else [])
 
 
 def _tool_arguments(call) -> dict:
@@ -178,9 +191,11 @@ async def _run_tool_call(call, tools: _TurnTools) -> str:
     name = call.function.name
     if name == notebook_tool.SAVE_TO_NOTEBOOK_TOOL_NAME:
         return await _run_notebook_save(call, tools)
+    if name == visual_tool.DRAW_VISUAL_TOOL_NAME and tools.offer_visual:
+        return await _run_draw_visual(call, tools)
     if name != web_search.WEB_SEARCH_TOOL_NAME:
-        return (f"Unknown tool {name!r}: only {web_search.WEB_SEARCH_TOOL_NAME} and "
-                f"{notebook_tool.SAVE_TO_NOTEBOOK_TOOL_NAME} are available.")
+        available = ", ".join(tool["function"]["name"] for tool in tools.definitions())
+        return f"Unknown tool {name!r}: only {available} are available."
     query = str(_tool_arguments(call).get("query") or "").strip()
     if not query:
         return "web_search needs a non-empty 'query' argument."
@@ -237,6 +252,31 @@ async def _run_notebook_save(call, tools: _TurnTools) -> str:
     return f"Saved to the student's notebook ({entry.kind.value}):\n{entry.text}"
 
 
+async def _run_draw_visual(call, tools: _TurnTools) -> str:
+    if tools.visuals:
+        return "The picture for this answer is already drawn. Answer the student now."
+    try:
+        # A VisualGateError here would be a bug, like a GuardViolation: left to propagate.
+        picture = await visual_tool.draw(
+            _tool_arguments(call), validated_turn=tools.validated_turn,
+            class_level=tools.class_level, subject=tools.subject, on_progress=tools.on_progress)
+    except visual_tool.VisualGateError:
+        raise
+    except ValueError as error:
+        return f"Nothing was drawn: {error}"
+    except PermissionError:
+        logger.info("Picture refused by the second gate")
+        return ("This picture is not school use, so it was not drawn. Answer in words, and "
+                "stay on the student's schoolwork.")
+    except visual_tool.VisualUnavailable as error:
+        logger.warning("Picture unavailable: %s", error)
+        tools.tool_problems.append(f"picture unavailable ({error})")
+        return ("The picture could not be drawn. Tell the student in one short sentence, "
+                "then explain in words instead.")
+    tools.visuals.append(picture)
+    return f"The picture is drawn and shown to the student. It shows: {picture.description}"
+
+
 @dataclass
 class AnswerResult:
     text: str
@@ -246,6 +286,7 @@ class AnswerResult:
     answer_problems: list[str] = field(default_factory=list)
     notebook_saves: list[dict] = field(default_factory=list)
     refused_searches: list[str] = field(default_factory=list)
+    visuals: list[visual_tool.Visual] = field(default_factory=list)
 
 
 async def _answer_or_retry(conversation: list[dict], answer: str) -> tuple[str, list[str]]:
@@ -271,7 +312,7 @@ async def _answer(conversation: list[dict], tools: _TurnTools | None) -> AnswerR
         # temperature 0.7: the value every Akili provider branch used for the tutor.
         call_kwargs: dict = {"temperature": 0.7}
         if offer_tools:
-            call_kwargs["tools"] = [web_search.WEB_SEARCH_TOOL, notebook_tool.SAVE_TO_NOTEBOOK_TOOL]
+            call_kwargs["tools"] = tools.definitions()
 
         message = await asyncio.to_thread(
             _llm().call_main_model_message, conversation, **call_kwargs
@@ -282,7 +323,8 @@ async def _answer(conversation: list[dict], tools: _TurnTools | None) -> AnswerR
             if tools is None:
                 return AnswerResult(answer, answer_problems=answer_problems)
             return AnswerResult(answer, tools.sources, tools.searches, tools.tool_problems,
-                                answer_problems, tools.notebook_saves, tools.refused_searches)
+                                answer_problems, tools.notebook_saves, tools.refused_searches,
+                                tools.visuals)
 
         # Replay the assistant's tool request, then one tool message per call, as the
         # chat completions API requires before the model can use the results.
@@ -345,6 +387,8 @@ class AgentState(TypedDict, total=False):
     notebook_saves: list[dict]
     # Searches the model asked for and the query gate refused as not school use.
     refused_searches: list[str]
+    # Pictures drawn this turn (apu.tools.visual.Visual), at most one.
+    visuals: list
 
 
 class GuardSessionRequired(ValueError):
@@ -433,7 +477,7 @@ Example: {{"student_profile": "", "learning_preferences": "", "current_session":
 
 # --- Nodes ---
 
-async def planner_node(state: AgentState):
+async def planner_node(state: AgentState, config: RunnableConfig | None = None):
     """
     Main node that:
     0. Runs the topical guard
@@ -441,6 +485,9 @@ async def planner_node(state: AgentState):
     2. Searches course data (LanceDB)
     3. Searches student memory (DLL)
     4. Generates a pedagogical response, with web search on validated turns
+
+    `config["configurable"]["on_progress"]`, when the caller passes one, is told when
+    something slow starts, so the student is not left waiting in silence.
     """
     messages = state["messages"]
     asked_at = max((index for index, m in enumerate(messages) if isinstance(m, HumanMessage)),
@@ -541,7 +588,9 @@ STUDENT MEMORY (L1/L2):
 Respond as a helpful tutor. Keep it concise but warm. Use the Socratic method when possible.
 """
 
-    output = await _generate(state, user_query, system_prompt, dll, decision.validated_turn)
+    on_progress = ((config or {}).get("configurable") or {}).get("on_progress")
+    output = await _generate(state, user_query, system_prompt, dll, decision.validated_turn,
+                             on_progress)
     output["guard_outcome"] = decision.outcome.value
     return output
 
@@ -554,22 +603,30 @@ def _previous_answer(state: AgentState) -> str:
 
 
 async def _generate(state: AgentState, user_query: str, system_prompt: str,
-                    dll: dict, validated_turn: ValidatedTurn | None) -> dict:
+                    dll: dict, validated_turn: ValidatedTurn | None,
+                    on_progress: visual_tool.ProgressCallback | None = None) -> dict:
     """Answer (with search when validated), render sources, then write memory back once."""
     # Tool instructions only when the tools are actually offered: telling the model about a
     # tool it cannot call invites it to pretend it searched or saved.
     mode = _interaction_mode(state)
+    # A picture needs a screen. Braille is excluded even with one: the screen beside an
+    # embosser is for whoever is helping, and the pupil asking cannot see it.
+    can_see = mode.text_display_available and not mode.is_braille
+    offer_visual = validated_turn is not None and can_see
     instructions = (
         system_prompt
         + LANGUAGE_INSTRUCTION
         + OUTPUT_INSTRUCTIONS.get(mode.output_channel, "")
         + (SEARCH_INSTRUCTIONS + notebook_tool.NOTEBOOK_INSTRUCTIONS if validated_turn is not None else "")
+        + (visual_tool.VISUAL_INSTRUCTIONS if offer_visual else "")
+        + ("" if can_see else visual_tool.NO_PICTURE_INSTRUCTIONS)
     )
     # SystemMessage, not HumanMessage: the instructions are not a student turn.
     conversation = _to_openai_messages([SystemMessage(content=instructions)] + state["messages"])
     tools = None
     if validated_turn is not None:
-        tools = _TurnTools(validated_turn, _previous_answer(state), state["class_level"], state["subject"])
+        tools = _TurnTools(validated_turn, _previous_answer(state), state["class_level"],
+                           state["subject"], offer_visual=offer_visual, on_progress=on_progress)
     result = await _answer(conversation, tools)
     answer_text, sources = result.text, result.sources
 
@@ -602,6 +659,7 @@ async def _generate(state: AgentState, user_query: str, system_prompt: str,
         "answer_text": answer_text,
         "notebook_saves": result.notebook_saves,
         "refused_searches": result.refused_searches,
+        "visuals": result.visuals,
     }
 
 
