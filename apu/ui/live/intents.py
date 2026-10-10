@@ -180,7 +180,7 @@ def handle_save_notebook(student_id: str, history: list[dict], prompt: str) -> d
     if not content_to_save:
         content_to_save = NOTEBOOK_SAVE_RE.sub("", prompt).strip(" :,-.") or "Voice note recorded."
 
-    title = content_to_save.split(".")[0][:40].strip() or "Live Note"
+    title = note_title(content_to_save)
     result = notebook_tool.append_to_notebook(student_id=student_id, title=title,
                                               content=content_to_save)
     # The title is the first words of what a pupil chose to keep, so it belongs in the
@@ -195,6 +195,20 @@ def handle_save_notebook(student_id: str, history: list[dict], prompt: str) -> d
         "entry_id": result.get("entry_id", ""),
         "ack_text": ack_text,
     }
+
+
+def note_title(text: str, limit: int = 40) -> str:
+    """
+    The first sentence of what was kept, cut at a word, never inside one.
+
+    It is read aloud ("Saved in your notebook: ..."), so a title that stops mid-word, as
+    "a delicious pizza cut int" did, is heard as a mistake.
+    """
+    first = text.split(".")[0].strip()
+    if len(first) <= limit:
+        return first or "Live Note"
+    cut = first[:limit].rsplit(" ", 1)[0].rstrip(" ,;:-")
+    return (cut or first[:limit]) + "…"
 
 
 async def handle_summary_notebook(student_id: str) -> str:
